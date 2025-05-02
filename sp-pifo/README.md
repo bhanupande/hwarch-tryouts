@@ -31,7 +31,11 @@ Implements the SP-PIFO queue with the following methods:
 - `generate_packets(n)`: Creates `n` packets with random priorities and arrival times for testing.
 - `simulate_queue_behavior()`: Demonstrates the enqueue and dequeue operations with sample packets.
 
-## Usage
+## Simulations
+There is an observable trend of reduction in the Average/Median % of unordered outputs with increasing
+number of Queues (i.e. #Queues tending towards the #Priorities we want to order against)
+
+![Alt text here](unordered_counts_vs_M.png)
 
 ### Prerequisites
 Ensure you have Python 3.x installed on your system.
@@ -80,6 +84,7 @@ You can modify the following parameters in the script:
 - Does not handle dynamic priority changes after enqueueing.
 
 ## Future Enhancements
+- Finding the sweet-spot with #Queues / Queue size / Input Sample size.
 - Add support for weighted priorities.
 - Implement multi-threaded access with locking mechanisms.
 - Extend to support real-time packet processing scenarios.

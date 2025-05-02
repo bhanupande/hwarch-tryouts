@@ -19,13 +19,13 @@ class SPPifo:
         self.dequeue_index = 0  # Index of the queue to dequeue from
 
     def enqueue(self, value):
-        #print(f"Enqueuing value: {value}, Current priorities: {self.priority}")
         if value <= self.N:
             self.select_enqueue_index(value)
             if self.enqueue_index < 0 or self.enqueue_index >= self.M:
                 raise Exception(f"Invalid enqueue index: {self.enqueue_index}, M: {self.M}")
             self.queues[self.enqueue_index].append(value)
             #print(f"Value {value} enqueued in queue {self.enqueue_index}")
+            #print (self.queues)
         else:
             raise Exception(f"Value: {value} exceeds maximum priority")
 
@@ -33,6 +33,7 @@ class SPPifo:
         # Dequeue a value from the appropriate queue based on priority.
         self.select_dequeue_index()  # Determine the queue to dequeue from
         if self.queues[self.dequeue_index]:  # Ensure the selected queue is not empty
+            #print (self.queues)
             return self.queues[self.dequeue_index].pop(0)  # Remove and return the first value in the queue
         else:
             raise Exception(f"Queue:{self.dequeue_index} is empty")  # Raise an error if the queue is empty

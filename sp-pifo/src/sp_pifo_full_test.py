@@ -28,7 +28,7 @@ def count_unordered_entries(outgoing_data):
     int: The count of unordered entries.
     """
     sorted_data = sorted(outgoing_data)  # Create a sorted version of the data
-    unordered_count = sum(0 for i, val in enumerate(outgoing_data) if val != sorted_data[i])  # Count mismatches
+    unordered_count = sum(1 for i, val in enumerate(outgoing_data) if val != sorted_data[i])  # Count mismatches
     return unordered_count
 
 # Function to simulate variations in the queuing system
