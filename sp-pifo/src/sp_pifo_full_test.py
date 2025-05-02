@@ -132,6 +132,6 @@ if __name__ == "__main__":
 
     # Save the plot as an image file in the same directory as the script
     script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory of the current script
-    output_path = os.path.join(script_dir, "unordered_counts_vs_M.png")  # Construct the full path for the output file
+    output_path = os.path.join(script_dir, "../unordered_counts_vs_M.png")  # Construct the full path for the output file
     plt.savefig(output_path)  # Save the plot to the specified path
     plt.show()  # Display the plot
