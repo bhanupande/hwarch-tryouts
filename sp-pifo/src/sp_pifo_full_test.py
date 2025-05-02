@@ -108,8 +108,19 @@ if __name__ == "__main__":
         # Annotate mean and median values on the plot
         mean_value = mean(counts)
         median_value = median(counts)
-        plt.annotate(f"Mean: {mean_value:.2f}", (M, mean_value), textcoords="offset points", xytext=(5, 5), ha='center', fontsize=8, color='blue')
-        plt.annotate(f"Median: {median_value:.2f}", (M, median_value), textcoords="offset points", xytext=(5, -10), ha='center', fontsize=8, color='green')
+
+        # Adjust annotation positions to avoid overlap
+        if mean_value > median_value:
+            mean_offset = (5, 10)  # Offset for mean annotation
+            median_offset = (5, -15)  # Offset for median annotation
+        else:
+            mean_offset = (5, -15)  # Offset for mean annotation
+            median_offset = (5, 10)  # Offset for median annotation
+
+        plt.annotate(f"Mean: {mean_value:.2f}", (M, mean_value), textcoords="offset points", xytext=mean_offset, 
+                     ha='center', fontsize=8, color='blue')
+        plt.annotate(f"Median: {median_value:.2f}", (M, median_value), textcoords="offset points", xytext=median_offset, 
+                     ha='center', fontsize=8, color='green')
 
     # Add labels, title, and grid to the plot
     plt.xlabel("M (Number of Queues)")
