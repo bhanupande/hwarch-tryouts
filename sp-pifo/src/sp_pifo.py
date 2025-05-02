@@ -17,6 +17,7 @@ class SPPifo:
         self.queues = [[] for _ in range(self.M)]  # Create M empty queues
         self.enqueue_index = 0  # Index of the queue to enqueue into
         self.dequeue_index = 0  # Index of the queue to dequeue from
+        self.ticks = 0  # Tick counter to measure latency
 
     def enqueue(self, value):
         if value <= self.N:
@@ -24,17 +25,18 @@ class SPPifo:
             if self.enqueue_index < 0 or self.enqueue_index >= self.M:
                 raise Exception(f"Invalid enqueue index: {self.enqueue_index}, M: {self.M}")
             self.queues[self.enqueue_index].append(value)
+            self.ticks += 1  # Increment ticks for appending value to the queue
             #print(f"Value {value} enqueued in queue {self.enqueue_index}")
             #print (self.queues)
         else:
             raise Exception(f"Value: {value} exceeds maximum priority")
 
     def dequeue(self):
-        # Dequeue a value from the appropriate queue based on priority.
         self.select_dequeue_index()  # Determine the queue to dequeue from
         if self.queues[self.dequeue_index]:  # Ensure the selected queue is not empty
-            #print (self.queues)
-            return self.queues[self.dequeue_index].pop(0)  # Remove and return the first value in the queue
+            value = self.queues[self.dequeue_index].pop(0)  # Remove and return the first value in the queue
+            self.ticks += 1  # Increment ticks for popping value from the queue
+            return value
         else:
             raise Exception(f"Queue:{self.dequeue_index} is empty")  # Raise an error if the queue is empty
 
@@ -43,6 +45,7 @@ class SPPifo:
         priority_values = [self.queues[i][0] for i in range(self.M) if self.queues[i]]  # Get the first value of each non-empty queue
         if priority_values:
             self.dequeue_index = priority_values.index(min(priority_values))  # Select the queue with the lowest value
+            self.ticks += 1  # Increment ticks for finding the minimum priority value
         else:
             raise Exception("All queues are empty")  # Raise an error if all queues are empty
 
@@ -52,12 +55,14 @@ class SPPifo:
             if value >= self.priority[i]:
                 self.priority[i] = value
                 self.enqueue_index = i
+                self.ticks += 1  # Increment ticks for updating priority and enqueue index
                 #print(f"Enqueue index selected: {self.enqueue_index}, Priority updated: {self.priority}")
                 return
 
         # If no valid queue is found, enqueue into the queue with the smallest priority
         self.enqueue_index = self.priority.index(min(self.priority))
         self.priority[self.enqueue_index] = value
+        self.ticks += 2  # Increment ticks for finding the smallest priority and updating it
         #print(f"Enqueue index selected (fallback): {self.enqueue_index}, Priority updated: {self.priority}")
 # ============================================================
 # End of SPPifo Class Implementation
