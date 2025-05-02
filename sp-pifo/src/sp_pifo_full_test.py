@@ -15,6 +15,7 @@ import numpy as np  # For numerical operations, such as generating logarithmic s
 import matplotlib.pyplot as plt  # For plotting results
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed  # For parallel processing (not used in this script)
 from statistics import mean, stdev, median  # For statistical calculations
+import os  # Import the os module to handle file paths
 
 # Function to count unordered entries in the outgoing data
 def count_unordered_entries(outgoing_data):
@@ -118,6 +119,8 @@ if __name__ == "__main__":
     plt.legend(title="M Values", bbox_to_anchor=(1.05, 1), loc='upper left')  # Place the legend outside the plot
     plt.tight_layout()  # Adjust layout to prevent overlap
 
-    # Save the plot as an image file
-    plt.savefig("unordered_counts_vs_M.png")
+    # Save the plot as an image file in the same directory as the script
+    script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory of the current script
+    output_path = os.path.join(script_dir, "unordered_counts_vs_M.png")  # Construct the full path for the output file
+    plt.savefig(output_path)  # Save the plot to the specified path
     plt.show()  # Display the plot
