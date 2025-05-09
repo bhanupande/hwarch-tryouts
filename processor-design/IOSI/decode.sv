@@ -7,7 +7,7 @@
 // Date: May 9, 2025
 // *****************************************************************************************
 
-`include "rv32_pkg.sv" // Include package for constants and types
+import rv32_pkg::*; // Import the package for constants and types
 
 // *****************************************************************************************
 // Module: decode
