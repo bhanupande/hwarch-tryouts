@@ -1,5 +1,5 @@
 // *****************************************************************************************
-// File: decode_pkg.sv
+// File: rv32_pkg.sv
 // Description: This package defines the instruction fields, control signals, and enums
 //              for RISC-V RV32I and RV32M instruction decoding. It includes opcode,
 //              funct3, and funct7 definitions, as well as ALU operation codes.
