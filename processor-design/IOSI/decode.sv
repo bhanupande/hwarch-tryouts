@@ -29,39 +29,39 @@ module decode (
     // Combinational logic for decoding the instruction
     always_comb begin
         // Initialize outputs to default values
-        instruction_packet = '{rs1_value: 5'b0, rs2_value: 5'b0, rd_value: 5'b0, imm32: 32'b0, alu_op: ALU_OP_NOP};
+        instruction_packet = '{rs1_sel: 5'b0, rs2_sel: 5'b0, rd_sel: 5'b0, imm32: 32'b0, alu_op: ALU_OP_NOP};
 
         // Decode based on opcode
         case (opcode)
             RV32I_LUI: begin
                 // Load Upper Immediate
-                instruction_packet.rd_value = instruction[11:7]; // Destination register
+                instruction_packet.rd_sel = instruction[11:7]; // Destination register
                 instruction_packet.imm32 = {instruction[31:12], 12'b0}; // Immediate value
                 instruction_packet.alu_op = ALU_OP_LUI; // ALU operation
             end
             RV32I_AUIPC: begin
                 // Add Upper Immediate to PC
-                instruction_packet.rd_value = instruction[11:7];
+                instruction_packet.rd_sel = instruction[11:7];
                 instruction_packet.imm32 = {instruction[31:12], 12'b0};
                 instruction_packet.alu_op = ALU_OP_AUIPC;
             end
             RV32I_JAL: begin
                 // Jump and Link
-                instruction_packet.rd_value = instruction[11:7];
+                instruction_packet.rd_sel = instruction[11:7];
                 instruction_packet.imm32 = {{11{instruction[31]}}, instruction[19:12], instruction[20], instruction[30:21], 1'b0};
                 instruction_packet.alu_op = ALU_OP_JAL;
             end
             RV32I_JALR: begin
                 // Jump and Link Register
-                instruction_packet.rs1_value = instruction[19:15];
-                instruction_packet.rd_value = instruction[11:7];
+                instruction_packet.rs1_sel = instruction[19:15];
+                instruction_packet.rd_sel = instruction[11:7];
                 instruction_packet.imm32 = {{20{instruction[31]}}, instruction[30:20]};
                 instruction_packet.alu_op = ALU_OP_JALR;
             end
             RV32I_BRANCH: begin
                 // Branch instructions
-                instruction_packet.rs1_value = instruction[19:15];
-                instruction_packet.rs2_value = instruction[24:20];
+                instruction_packet.rs1_sel = instruction[19:15];
+                instruction_packet.rs2_sel = instruction[24:20];
                 instruction_packet.imm32 = {{20{instruction[31]}}, instruction[7], instruction[30:25], instruction[11:8], 1'b0};
                 case (funct3)
                     RV32I_F3_BEQ: instruction_packet.alu_op = ALU_OP_BEQ; // Branch if Equal
@@ -75,8 +75,8 @@ module decode (
             end
             RV32I_LOAD: begin
                 // Load instructions
-                instruction_packet.rs1_value = instruction[19:15];
-                instruction_packet.rd_value = instruction[11:7];
+                instruction_packet.rs1_sel = instruction[19:15];
+                instruction_packet.rd_sel = instruction[11:7];
                 instruction_packet.imm32 = {{20{instruction[31]}}, instruction[31:20]};
                 case (funct3)
                     RV32I_F3_LB: instruction_packet.alu_op = ALU_OP_LB; // Load Byte
@@ -89,8 +89,8 @@ module decode (
             end
             RV32I_STORE: begin
                 // Store instructions
-                instruction_packet.rs1_value = instruction[19:15];
-                instruction_packet.rs2_value = instruction[24:20];
+                instruction_packet.rs1_sel = instruction[19:15];
+                instruction_packet.rs2_sel = instruction[24:20];
                 instruction_packet.imm32 = {{20{instruction[31]}}, instruction[31:25], instruction[11:7]};
                 case (funct3)
                     RV32I_F3_SB: instruction_packet.alu_op = ALU_OP_SB; // Store Byte
@@ -101,8 +101,8 @@ module decode (
             end
             RV32I_OP_IMM: begin
                 // Immediate ALU operations
-                instruction_packet.rs1_value = instruction[19:15];
-                instruction_packet.rd_value = instruction[11:7];
+                instruction_packet.rs1_sel = instruction[19:15];
+                instruction_packet.rd_sel = instruction[11:7];
                 instruction_packet.imm32 = {{21{instruction[31]}}, instruction[30:20]};
                 case (funct3)
                     RV32I_F3_ADDI: instruction_packet.alu_op = ALU_OP_ADDI; // Add Immediate
@@ -119,9 +119,9 @@ module decode (
             end
             RV32I_OP_ALU: begin
                 // Register-register ALU operations
-                instruction_packet.rs1_value = instruction[19:15];
-                instruction_packet.rs2_value = instruction[24:20];
-                instruction_packet.rd_value = instruction[11:7];
+                instruction_packet.rs1_sel = instruction[19:15];
+                instruction_packet.rs2_sel = instruction[24:20];
+                instruction_packet.rd_sel = instruction[11:7];
                 case ({funct7, funct3})
                     {RV32I_F7_ADD, RV32I_F3_ADD}: instruction_packet.alu_op = ALU_OP_ADD; // Add
                     {RV32I_F7_SUB, RV32I_F3_SUB}: instruction_packet.alu_op = ALU_OP_SUB; // Subtract
