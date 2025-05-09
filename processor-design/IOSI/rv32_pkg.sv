@@ -8,13 +8,27 @@
 // *****************************************************************************************
 
 package rv32_pkg;
+    // Issue packet structure
+    typedef struct packed {
+        logic [31:0] rs1_value; // Source register 1
+        logic [31:0] rs2_value; // Source register 2
+        logic [31:0] imm32;    // Immediate value (if applicable)
+        logic [5:0] alu_op;    // ALU operation code
+    } rv32_issue_packet_t;
+
+    // Define writeback packet structure
+    typedef struct packed {
+        logic [4:0] wb_sel;    // Destination register
+        logic [31:0] wb_data;    // Data to write back
+        logic wb_en; // Write enable signal
+    } rv32_writeback_packet_t;
 
     // Define instruction fields using typedef
     typedef struct packed {
         logic [5:0] alu_op;      // ALU operation code
-        logic [4:0] rd_value;    // Destination register
-        logic [4:0] rs1_value;   // Source register 1
-        logic [4:0] rs2_value;   // Source register 2
+        logic [4:0] rd_sel;    // Destination register
+        logic [4:0] rs1_sel;   // Source register 1
+        logic [4:0] rs2_sel;   // Source register 2
         logic [31:0] imm32;      // Immediate value (if applicable)
     } rv32_instr_packet_t;
 
