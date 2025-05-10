@@ -14,7 +14,6 @@ module execute (
     input logic [31:0] pc_in, // Program Counter input
     input rv32_issue_packet_t issue_packet, // Decoded instruction packet
     output logic [4:0] reg_write_addr, // Destination register value
-    output logic [31:0] alu_result, // ALU result output
     output logic reg_write_enable, // Register write enable signal
     output logic mem_read_enable, // Memory read enable signal
     output logic mem_write_enable, // Memory write enable signal
