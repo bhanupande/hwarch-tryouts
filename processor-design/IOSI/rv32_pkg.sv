@@ -12,6 +12,7 @@ package rv32_pkg;
     typedef struct packed {
         logic [31:0] rs1_value; // Source register 1
         logic [31:0] rs2_value; // Source register 2
+        logic [4:0] wb_sel;    // Destination register
         logic [31:0] imm32;    // Immediate value (if applicable)
         logic [5:0] alu_op;    // ALU operation code
     } rv32_issue_packet_t;

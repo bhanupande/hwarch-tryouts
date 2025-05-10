@@ -41,6 +41,8 @@ module regfile (
         // Read rs1 and rs2 values from the register file
         issue_packet.rs1_value = regfile[instruction_packet.rs1_sel];
         issue_packet.rs2_value = regfile[instruction_packet.rs2_sel];
+        // Set the destination register for writeback
+        issue_packet.wb_sel = instruction_packet.rd_sel;
         // Pass immediate value and ALU operation code directly
         issue_packet.imm32 = instruction_packet.imm32;
         issue_packet.alu_op = instruction_packet.alu_op;
