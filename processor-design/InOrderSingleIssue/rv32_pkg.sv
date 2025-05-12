@@ -35,6 +35,8 @@ package rv32_pkg;
         logic [31:0] wb_data;   // Data to write back
         logic wb_enable;        // Write-back enable signal
         logic [31:0] wb_pc;     // Program counter for the instruction
+        logic [4:0] rs1_sel;    // Source register 1 selection
+        logic [4:0] rs2_sel;    // Source register 2 selection
     } rv32_ex2mem_wb_packet_t;
 
     typedef struct packed {
@@ -42,6 +44,8 @@ package rv32_pkg;
         logic [31:0] wb_data;   // Data to write back
         logic wb_enable;        // Write-back enable signal
         logic [31:0] wb_pc;     // Program counter for the instruction
+        logic [4:0] rs1_sel;    // Source register 1 selection
+        logic [4:0] rs2_sel;    // Source register 2 selection
     } rv32_mem2wb_packet_t;
 
     // *****************************************************************************************
@@ -110,6 +114,8 @@ package rv32_pkg;
     typedef struct packed {
         logic [5:0] alu_op;      // ALU operation code
         logic [4:0] rd_sel;      // Destination register
+        logic [4:0] rs1_sel;     // Source register 1
+        logic [4:0] rs2_sel;     // Source register 2
         logic [31:0] imm32;      // Immediate value (if applicable)
         logic [31:0] pc;         // Program counter
         logic [31:0] rs1_value;  // Value of source register 1

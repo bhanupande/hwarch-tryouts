@@ -42,6 +42,10 @@ module regfile_stage (
         issue_packet.rs1_value = regfile[instruction_packet.rs1_sel];
         issue_packet.rs2_value = regfile[instruction_packet.rs2_sel];
 
+        // Pass the rs1 and rs2 selection signals to the issue packet
+        issue_packet.rs1_sel = instruction_packet.rs1_sel;
+        issue_packet.rs2_sel = instruction_packet.rs2_sel;
+
         // Set the destination register for writeback
         issue_packet.rd_sel = instruction_packet.rd_sel;
 

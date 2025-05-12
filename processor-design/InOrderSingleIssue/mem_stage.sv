@@ -34,6 +34,9 @@ module mem_stage (
     // ***********************************************************************
     // Write-Back Packet Assignments
     // ***********************************************************************
+    assign wb_out_packet.rs1_sel = wb_in_packet.rs1_sel; // Source register 1 selection
+    assign wb_out_packet.rs2_sel = wb_in_packet.rs2_sel; // Source register 2 selection
+    assign wb_out_packet.wb_pc = wb_in_packet.wb_pc; // Program counter for write-back
     assign wb_out_packet.wb_addr = wb_in_packet.wb_addr; // Register address to write back
     assign wb_out_packet.wb_data = mem_packet.read_enable ? load_data : wb_in_packet.wb_data; // Data to write back
     assign wb_out_packet.wb_enable = mem_packet.read_enable || wb_in_packet.wb_enable; // Enable write-back if memory read or previous stage enabled it

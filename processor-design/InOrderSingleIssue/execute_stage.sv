@@ -37,6 +37,8 @@ module execute_stage (
     assign pc_in = issued_instruction_packet.pc;
 
     // Write-back Packet Assignments
+    assign wb_packet.rs1_sel = issued_instruction_packet.rs1_sel; // Source register 1 selection
+    assign wb_packet.rs2_sel = issued_instruction_packet.rs2_sel; // Source register 2 selection
     assign wb_packet.wb_addr = issued_instruction_packet.rd_sel; // Destination register
     assign wb_packet.wb_pc = pc_out;                             // Program counter for write-back
     assign wb_packet.wb_data = alu_result;                       // Data to write back to register file
