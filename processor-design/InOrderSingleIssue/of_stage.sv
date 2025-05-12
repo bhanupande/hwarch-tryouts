@@ -12,24 +12,26 @@ import rv32_pkg::*; // Import the package for constants and types
 // *****************************************************************************************
 // Module: of_stage
 // Inputs:
-//   - instruction: 32-bit RISC-V instruction to be decoded
+//   - if_packet: Input packet containing the 32-bit RISC-V instruction and PC.
 // Outputs:
-//   - instruction_packet: Struct containing decoded instruction fields (rs1, rs2, rd, imm, alu_op)
+//   - instruction_packet: Struct containing decoded instruction fields (rs1, rs2, rd, imm, alu_op).
 // *****************************************************************************************
 module of_stage (
-    input rv32_if_packet_t if_packet,       // 32-bit RISC-V instruction
+    input rv32_if_packet_t if_packet,       // Input packet containing instruction and PC
     output rv32_instr_packet_t instruction_packet // Decoded instruction packet
 );
 
     // Extract opcode, funct3, and funct7 fields from the instruction
     rv32_opcode_t opcode;       // Opcode field (bits 6:0)
-    rv32_funct3_t funct3;     // Funct3 field (bits 14:12)
-    rv32_funct7_t funct7;     // Funct7 field (bits 31:25)
-    logic [31:0] instruction; // Instruction to be decoded
+    rv32_funct3_t funct3;       // Funct3 field (bits 14:12)
+    rv32_funct7_t funct7;       // Funct7 field (bits 31:25)
+    logic [31:0] instruction;   // Instruction to be decoded
+
+    // Assign instruction fields
     assign instruction = if_packet.instruction; // Get instruction from input packet
-    assign opcode = instruction[6:0];       // Opcode field (bits 6:0)
-    assign funct3 = instruction[14:12];     // Funct3 field (bits 14:12)
-    assign funct7 = instruction[31:25];     // Funct7 field (bits 31:25)
+    assign opcode = instruction[6:0];           // Extract opcode
+    assign funct3 = instruction[14:12];         // Extract funct3
+    assign funct7 = instruction[31:25];         // Extract funct7
 
     // Combinational logic for decoding the instruction
     always_comb begin
@@ -69,13 +71,13 @@ module of_stage (
                 instruction_packet.rs2_sel = instruction[24:20];
                 instruction_packet.imm32 = {{20{instruction[31]}}, instruction[7], instruction[30:25], instruction[11:8], 1'b0};
                 case (funct3)
-                    RV32I_F3_ADD: instruction_packet.alu_op = ALU_OP_BEQ; // Branch if Equal
-                    RV32I_F3_SLL: instruction_packet.alu_op = ALU_OP_BNE; // Branch if Not Equal
-                    RV32I_F3_XOR: instruction_packet.alu_op = ALU_OP_BLT; // Branch if Less Than
-                    RV32I_F3_SRL: instruction_packet.alu_op = ALU_OP_BGE; // Branch if Greater or Equal
-                    RV32I_F3_OR: instruction_packet.alu_op = ALU_OP_BLTU; // Branch if Less Than Unsigned
+                    RV32I_F3_ADD: instruction_packet.alu_op = ALU_OP_BEQ;  // Branch if Equal
+                    RV32I_F3_SLL: instruction_packet.alu_op = ALU_OP_BNE;  // Branch if Not Equal
+                    RV32I_F3_XOR: instruction_packet.alu_op = ALU_OP_BLT;  // Branch if Less Than
+                    RV32I_F3_SRL: instruction_packet.alu_op = ALU_OP_BGE;  // Branch if Greater or Equal
+                    RV32I_F3_OR:  instruction_packet.alu_op = ALU_OP_BLTU; // Branch if Less Than Unsigned
                     RV32I_F3_AND: instruction_packet.alu_op = ALU_OP_BGEU; // Branch if Greater or Equal Unsigned
-                    default: instruction_packet.alu_op = ALU_OP_NOP; // Default to no operation
+                    default: instruction_packet.alu_op = ALU_OP_NOP;       // Default to no operation
                 endcase
             end
             RV32I_LOAD: begin
@@ -84,9 +86,9 @@ module of_stage (
                 instruction_packet.rd_sel = instruction[11:7];
                 instruction_packet.imm32 = {{20{instruction[31]}}, instruction[31:20]};
                 case (funct3)
-                    RV32I_F3_ADD: instruction_packet.alu_op = ALU_OP_LB; // Load Byte
-                    RV32I_F3_SLL: instruction_packet.alu_op = ALU_OP_LH; // Load Halfword
-                    RV32I_F3_SLT: instruction_packet.alu_op = ALU_OP_LW; // Load Word
+                    RV32I_F3_ADD: instruction_packet.alu_op = ALU_OP_LB;  // Load Byte
+                    RV32I_F3_SLL: instruction_packet.alu_op = ALU_OP_LH;  // Load Halfword
+                    RV32I_F3_SLT: instruction_packet.alu_op = ALU_OP_LW;  // Load Word
                     RV32I_F3_XOR: instruction_packet.alu_op = ALU_OP_LBU; // Load Byte Unsigned
                     RV32I_F3_SRL: instruction_packet.alu_op = ALU_OP_LHU; // Load Halfword Unsigned
                     default: instruction_packet.alu_op = ALU_OP_NOP;
@@ -110,13 +112,13 @@ module of_stage (
                 instruction_packet.rd_sel = instruction[11:7];
                 instruction_packet.imm32 = {{21{instruction[31]}}, instruction[30:20]};
                 case (funct3)
-                    RV32I_F3_ADD: instruction_packet.alu_op = ALU_OP_ADDI; // Add Immediate
-                    RV32I_F3_SLL: instruction_packet.alu_op = ALU_OP_SLLI; // Shift Left Logical Immediate
-                    RV32I_F3_SLT: instruction_packet.alu_op = ALU_OP_SLTI; // Set Less Than Immediate
+                    RV32I_F3_ADD: instruction_packet.alu_op = ALU_OP_ADDI;  // Add Immediate
+                    RV32I_F3_SLL: instruction_packet.alu_op = ALU_OP_SLLI;  // Shift Left Logical Immediate
+                    RV32I_F3_SLT: instruction_packet.alu_op = ALU_OP_SLTI;  // Set Less Than Immediate
                     RV32I_F3_SLTU: instruction_packet.alu_op = ALU_OP_SLTIU; // Set Less Than Immediate Unsigned
-                    RV32I_F3_XOR: instruction_packet.alu_op = ALU_OP_XORI; // XOR Immediate
-                    RV32I_F3_OR: instruction_packet.alu_op = ALU_OP_ORI; // OR Immediate
-                    RV32I_F3_AND: instruction_packet.alu_op = ALU_OP_ANDI; // AND Immediate
+                    RV32I_F3_XOR: instruction_packet.alu_op = ALU_OP_XORI;  // XOR Immediate
+                    RV32I_F3_OR:  instruction_packet.alu_op = ALU_OP_ORI;   // OR Immediate
+                    RV32I_F3_AND: instruction_packet.alu_op = ALU_OP_ANDI;  // AND Immediate
                     RV32I_F3_SRL: begin
                         case (funct7)
                             RV32I_F7_ADD: instruction_packet.alu_op = ALU_OP_SRLI; // Shift Right Logical Immediate
@@ -139,7 +141,7 @@ module of_stage (
                             RV32I_F3_SLT: instruction_packet.alu_op = ALU_OP_SLT; // Set Less Than
                             RV32I_F3_SLTU: instruction_packet.alu_op = ALU_OP_SLTU; // Set Less Than Unsigned
                             RV32I_F3_XOR: instruction_packet.alu_op = ALU_OP_XOR; // XOR
-                            RV32I_F3_OR: instruction_packet.alu_op = ALU_OP_OR; // OR
+                            RV32I_F3_OR:  instruction_packet.alu_op = ALU_OP_OR;  // OR
                             RV32I_F3_AND: instruction_packet.alu_op = ALU_OP_AND; // AND
                             RV32I_F3_SRL: instruction_packet.alu_op = ALU_OP_SRL; // Shift Right Logical
                         endcase
@@ -152,13 +154,13 @@ module of_stage (
                     end
                     RV32M_F7_MUL: begin
                         case (funct3)
-                            RV32I_F3_ADD: instruction_packet.alu_op = ALU_OP_MUL; // Multiply
+                            RV32I_F3_ADD: instruction_packet.alu_op = ALU_OP_MUL;  // Multiply
                             RV32I_F3_SLL: instruction_packet.alu_op = ALU_OP_MULH; // Multiply High
                             RV32I_F3_SLT: instruction_packet.alu_op = ALU_OP_MULHSU; // Multiply High Signed-Unsigned
                             RV32I_F3_SLTU: instruction_packet.alu_op = ALU_OP_MULHU; // Multiply High Unsigned
-                            RV32I_F3_XOR: instruction_packet.alu_op = ALU_OP_DIV; // Divide
+                            RV32I_F3_XOR: instruction_packet.alu_op = ALU_OP_DIV;  // Divide
                             RV32I_F3_SRL: instruction_packet.alu_op = ALU_OP_DIVU; // Divide Unsigned
-                            RV32I_F3_OR: instruction_packet.alu_op = ALU_OP_REM; // Remainder
+                            RV32I_F3_OR:  instruction_packet.alu_op = ALU_OP_REM;  // Remainder
                             RV32I_F3_AND: instruction_packet.alu_op = ALU_OP_REMU; // Remainder Unsigned
                         endcase
                     end
