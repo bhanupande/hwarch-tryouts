@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// Module Name: regfile
+// Module Name: regfile_stage
 // Description: This module implements a 32-register file for an RV32 processor.
 //              It supports synchronous write operations and asynchronous read
 //              operations. The module interfaces with instruction and writeback
@@ -11,11 +11,11 @@
 import rv32_pkg::*; // Import the package for constants and types
 
 module regfile_stage (
-    input logic clk, // Clock signal
-    input logic resetn, // Active low reset signal
+    input logic clk,                          // Clock signal
+    input logic resetn,                       // Active-low reset signal
     input rv32_instr_packet_t instruction_packet, // Instruction packet containing rs1, rs2, rd, imm, alu_op
-    input rv32_mem2wb_packet_t writeback_packet, // Writeback packet containing wb_reg and wb_data
-    output rv32_issue_packet_t issue_packet // Output packet for the next stage
+    input rv32_mem2wb_packet_t writeback_packet,  // Writeback packet containing wb_reg and wb_data
+    output rv32_issue_packet_t issue_packet       // Output packet for the next stage
 );
 
     // Declare registers for the register file
@@ -29,7 +29,7 @@ module regfile_stage (
                 regfile[i] <= 32'b0;
             end
         end else begin
-            // Writeback operation
+            // Writeback operation: Write data to the register file if enabled
             if (writeback_packet.wb_enable) begin
                 regfile[writeback_packet.wb_addr] <= writeback_packet.wb_data;
             end
@@ -41,11 +41,15 @@ module regfile_stage (
         // Read rs1 and rs2 values from the register file
         issue_packet.rs1_value = regfile[instruction_packet.rs1_sel];
         issue_packet.rs2_value = regfile[instruction_packet.rs2_sel];
+
         // Set the destination register for writeback
         issue_packet.rd_sel = instruction_packet.rd_sel;
+
         // Pass immediate value and ALU operation code directly
         issue_packet.imm32 = instruction_packet.imm32;
         issue_packet.alu_op = instruction_packet.alu_op;
+
+        // Pass the program counter (PC) to the next stage
         issue_packet.pc = instruction_packet.pc;
     end
 
