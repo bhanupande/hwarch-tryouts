@@ -36,7 +36,15 @@ module of_stage (
     // Combinational logic for decoding the instruction
     always_comb begin
         // Initialize outputs to default values
-        instruction_packet = '{rs1_sel: 5'b0, rs2_sel: 5'b0, rd_sel: 5'b0, imm32: 32'b0, alu_op: ALU_OP_NOP, pc: if_packet.pc};
+        instruction_packet = '{
+            rs1_sel: 5'b0,                // Default source register 1
+            rs2_sel: 5'b0,                // Default source register 2
+            rd_sel: 5'b0,                 // Default destination register
+            imm32: 32'b0,                 // Default immediate value
+            alu_op: ALU_OP_NOP,           // Default ALU operation (No Operation)
+            pc: if_packet.pc,             // Pass through the program counter
+            valid_opcode: is_valid_opcode(opcode) // Check if opcode is valid
+        };
 
         // Decode based on opcode
         case (opcode)
@@ -54,22 +62,22 @@ module of_stage (
             end
             RV32I_JAL: begin
                 // Jump and Link
-                instruction_packet.rd_sel = instruction[11:7];
-                instruction_packet.imm32 = {{11{instruction[31]}}, instruction[19:12], instruction[20], instruction[30:21], 1'b0};
-                instruction_packet.alu_op = ALU_OP_JAL;
+                instruction_packet.rd_sel = instruction[11:7]; // Destination register
+                instruction_packet.imm32 = {{11{instruction[31]}}, instruction[19:12], instruction[20], instruction[30:21], 1'b0}; // Immediate value
+                instruction_packet.alu_op = ALU_OP_JAL; // ALU operation
             end
             RV32I_JALR: begin
                 // Jump and Link Register
-                instruction_packet.rs1_sel = instruction[19:15];
-                instruction_packet.rd_sel = instruction[11:7];
-                instruction_packet.imm32 = {{20{instruction[31]}}, instruction[30:20]};
-                instruction_packet.alu_op = ALU_OP_JALR;
+                instruction_packet.rs1_sel = instruction[19:15]; // Source register 1
+                instruction_packet.rd_sel = instruction[11:7];   // Destination register
+                instruction_packet.imm32 = {{20{instruction[31]}}, instruction[30:20]}; // Immediate value
+                instruction_packet.alu_op = ALU_OP_JALR; // ALU operation
             end
             RV32I_BRANCH: begin
                 // Branch instructions
-                instruction_packet.rs1_sel = instruction[19:15];
-                instruction_packet.rs2_sel = instruction[24:20];
-                instruction_packet.imm32 = {{20{instruction[31]}}, instruction[7], instruction[30:25], instruction[11:8], 1'b0};
+                instruction_packet.rs1_sel = instruction[19:15]; // Source register 1
+                instruction_packet.rs2_sel = instruction[24:20]; // Source register 2
+                instruction_packet.imm32 = {{20{instruction[31]}}, instruction[7], instruction[30:25], instruction[11:8], 1'b0}; // Immediate value
                 case (funct3)
                     RV32I_F3_ADD: instruction_packet.alu_op = ALU_OP_BEQ;  // Branch if Equal
                     RV32I_F3_SLL: instruction_packet.alu_op = ALU_OP_BNE;  // Branch if Not Equal
@@ -82,9 +90,9 @@ module of_stage (
             end
             RV32I_LOAD: begin
                 // Load instructions
-                instruction_packet.rs1_sel = instruction[19:15];
-                instruction_packet.rd_sel = instruction[11:7];
-                instruction_packet.imm32 = {{20{instruction[31]}}, instruction[31:20]};
+                instruction_packet.rs1_sel = instruction[19:15]; // Source register 1
+                instruction_packet.rd_sel = instruction[11:7];   // Destination register
+                instruction_packet.imm32 = {{20{instruction[31]}}, instruction[31:20]}; // Immediate value
                 case (funct3)
                     RV32I_F3_ADD: instruction_packet.alu_op = ALU_OP_LB;  // Load Byte
                     RV32I_F3_SLL: instruction_packet.alu_op = ALU_OP_LH;  // Load Halfword
@@ -96,9 +104,9 @@ module of_stage (
             end
             RV32I_STORE: begin
                 // Store instructions
-                instruction_packet.rs1_sel = instruction[19:15];
-                instruction_packet.rs2_sel = instruction[24:20];
-                instruction_packet.imm32 = {{20{instruction[31]}}, instruction[31:25], instruction[11:7]};
+                instruction_packet.rs1_sel = instruction[19:15]; // Source register 1
+                instruction_packet.rs2_sel = instruction[24:20]; // Source register 2
+                instruction_packet.imm32 = {{20{instruction[31]}}, instruction[31:25], instruction[11:7]}; // Immediate value
                 case (funct3)
                     RV32I_F3_ADD: instruction_packet.alu_op = ALU_OP_SB; // Store Byte
                     RV32I_F3_SLL: instruction_packet.alu_op = ALU_OP_SH; // Store Halfword
@@ -108,9 +116,9 @@ module of_stage (
             end
             RV32I_OP_IMM: begin
                 // Immediate ALU operations
-                instruction_packet.rs1_sel = instruction[19:15];
-                instruction_packet.rd_sel = instruction[11:7];
-                instruction_packet.imm32 = {{21{instruction[31]}}, instruction[30:20]};
+                instruction_packet.rs1_sel = instruction[19:15]; // Source register 1
+                instruction_packet.rd_sel = instruction[11:7];   // Destination register
+                instruction_packet.imm32 = {{21{instruction[31]}}, instruction[30:20]}; // Immediate value
                 case (funct3)
                     RV32I_F3_ADD: instruction_packet.alu_op = ALU_OP_ADDI;  // Add Immediate
                     RV32I_F3_SLL: instruction_packet.alu_op = ALU_OP_SLLI;  // Shift Left Logical Immediate
@@ -130,9 +138,9 @@ module of_stage (
             end
             RV32I_OP_ALU: begin
                 // Register-register ALU operations
-                instruction_packet.rs1_sel = instruction[19:15];
-                instruction_packet.rs2_sel = instruction[24:20];
-                instruction_packet.rd_sel = instruction[11:7];
+                instruction_packet.rs1_sel = instruction[19:15]; // Source register 1
+                instruction_packet.rs2_sel = instruction[24:20]; // Source register 2
+                instruction_packet.rd_sel = instruction[11:7];   // Destination register
                 case (funct7)
                     RV32I_F7_ADD: begin
                         case (funct3)
