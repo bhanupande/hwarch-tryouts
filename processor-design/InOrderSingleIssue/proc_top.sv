@@ -48,10 +48,10 @@ module proc_top (
     dependency_ctrl dep_ctrl_inst (
         .clk(clk),                          // Clock signal
         .resetn(resetn),                    // Active low reset signal
-        .if_out_packet(if_packet_out),      // Instruction packet from IF stage
-        .of_in_packet(of_packet_in),        // Instruction packet to OF stage
-        .of_out_packet(of_packet_out),      // Instruction packet from OF stage
-        .ex_in_packet(ex_packet_in),        // Instruction packet to EX stage
+        .ifout_packet(if_packet_out),      // Instruction packet from IF stage
+        .ofin_packet(of_packet_in),        // Instruction packet to OF stage
+        .ofout_packet(of_packet_out),      // Instruction packet from OF stage
+        .exin_packet(ex_packet_in),        // Instruction packet to EX stage
         .exout_wb_packet(exout_wb_packet),  // Write-back packet from EX stage
         .memin_wb_packet(ex2mem_wb_packet), // Write-back packet to MEM stage
         .memin_mem_packet(ex2mem_mem_packet), // Memory packet to MEM stage
