@@ -52,12 +52,12 @@ module proc_top (
         .of_in_packet(of_packet_in),        // Instruction packet to OF stage
         .of_out_packet(of_packet_out),      // Instruction packet from OF stage
         .ex_in_packet(ex_packet_in),        // Instruction packet to EX stage
-        .ex2mem_mem_packet(ex2mem_mem_packet), // Memory packet to MEM stage
         .exout_wb_packet(exout_wb_packet),  // Write-back packet from EX stage
-        .ex2mem_wb_packet(ex2mem_wb_packet), // Write-back packet to MEM stage
-        .ex2mem_control_packet(ex2mem_control_packet), // Control packet to MEM stage
-        .mem2wb_packet(mem2wb_packet),      // Write-back packet from MEM stage
-        .wb_out_packet(wb_out_packet),      // Write-back packet to WB stage
+        .memin_wb_packet(ex2mem_wb_packet), // Write-back packet to MEM stage
+        .memin_mem_packet(ex2mem_mem_packet), // Memory packet to MEM stage
+        .memin_control_packet(ex2mem_control_packet), // Control packet to MEM stage
+        .memout_packet(mem2wb_packet),      // Write-back packet from MEM stage
+        .wbin_packet(wb_out_packet),      // Write-back packet to WB stage
         .fwd_packet(fwd_packet),            // Forwarding packet for data hazards
         .stall_if(stall_if),                // Stall signal for IF stage
         .stall_ifof(stall_ifof),            // Stall signal for IF -> OF pipeline

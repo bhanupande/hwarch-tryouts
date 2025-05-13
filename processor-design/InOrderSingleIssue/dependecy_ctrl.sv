@@ -7,11 +7,11 @@ module dependency_ctrl (
     input rv32_instr_packet_t of_out_packet,
     input rv32_issue_packet_t ex_in_packet,
     input rv32_ex2mem_wb_packet_t exout_wb_packet,
-    input rv32_ex2mem_wb_packet_t ex2mem_wb_packet,
-    input rv32_mem_packet_t ex2mem_mem_packet,
-    input rv32_ex_control_packet_t ex2mem_control_packet,
-    input rv32_mem2wb_packet_t mem2wb_packet,
-    input rv32_mem2wb_packet_t wb_out_packet,
+    input rv32_ex2mem_wb_packet_t memin_wb_packet,
+    input rv32_mem_packet_t memin_mem_packet,
+    input rv32_ex_control_packet_t memin_control_packet,
+    input rv32_mem2wb_packet_t memout_packet,
+    input rv32_mem2wb_packet_t wbin_packet,
     output rv32_fwd_packet_t fwd_packet,
     output logic stall_if,
     output logic stall_ifof,
@@ -34,23 +34,24 @@ module dependency_ctrl (
     logic rs1_ofstg_matches_rd_memstg;
     logic rs2_ofstg_matches_rd_memstg;
 
-    assign instr_prememstg_load = ex2mem_mem_packet.read_enable && ex2mem_wb_packet.wb_enable;
-    assign instr_prememstg_load_addr = ex2mem_mem_packet.addr;
-    assign instr_prememstg_load_reg = ex2mem_wb_packet.wb_addr;
+    assign instr_prememstg_load = memin_mem_packet.read_enable && memin_wb_packet.wb_enable;
+    assign instr_prememstg_load_addr = memin_mem_packet.addr;
+    assign instr_prememstg_load_reg = memin_wb_packet.wb_addr;
 
     assign of_valid_opcode = of_out_packet.valid_opcode;
     assign ex_valid_opcode = exout_wb_packet.valid_opcode;
-    assign mem_valid_opcode = ex2mem_wb_packet.valid_opcode;
+    assign mem_valid_opcode = memin_wb_packet.valid_opcode;
 
     assign rs1_ofstg = of_out_packet.rs1_sel;
     assign rs2_ofstg = of_out_packet.rs2_sel;
+
     assign rs_ofstg_matches_load_addr = ((rs1_ofstg == instr_prememstg_load_reg) || (rs2_ofstg == instr_prememstg_load_reg)) && instr_prememstg_load && of_valid_opcode;
 
     assign rs1_ofstg_matches_rd_exstg = (rs1_ofstg == exout_wb_packet.wb_addr) && of_valid_opcode && ex_valid_opcode;
     assign rs2_ofstg_matches_rd_exstg = (rs2_ofstg == exout_wb_packet.wb_addr) && of_valid_opcode && ex_valid_opcode;
 
-    assign rs1_ofstg_matches_rd_memstg = (rs1_ofstg == ex2mem_wb_packet.wb_addr) && of_valid_opcode && mem_valid_opcode;
-    assign rs2_ofstg_matches_rd_memstg = (rs2_ofstg == ex2mem_wb_packet.wb_addr) && of_valid_opcode && mem_valid_opcode;
+    assign rs1_ofstg_matches_rd_memstg = (rs1_ofstg == memin_wb_packet.wb_addr) && of_valid_opcode && mem_valid_opcode;
+    assign rs2_ofstg_matches_rd_memstg = (rs2_ofstg == memin_wb_packet.wb_addr) && of_valid_opcode && mem_valid_opcode;
 
     always_ff @(posedge clk or negedge resetn) begin
         if (~resetn) begin
@@ -61,18 +62,18 @@ module dependency_ctrl (
         end else begin
             case ({rs2_ofstg_matches_rd_exstg, rs1_ofstg_matches_rd_exstg, rs2_ofstg_matches_rd_memstg, rs1_ofstg_matches_rd_memstg})
                 4'b0001: begin
-                    fwd_packet.fwd_rs1_data     <= ex2mem_wb_packet.wb_data;
-                    fwd_packet.fwd_rs1_enable   <= ex2mem_wb_packet.wb_enable;
+                    fwd_packet.fwd_rs1_data     <= memin_wb_packet.wb_data;
+                    fwd_packet.fwd_rs1_enable   <= memin_wb_packet.wb_enable;
                 end
                 4'b0010: begin
-                    fwd_packet.fwd_rs2_data     <= ex2mem_wb_packet.wb_data;
-                    fwd_packet.fwd_rs2_enable   <= ex2mem_wb_packet.wb_enable;
+                    fwd_packet.fwd_rs2_data     <= memin_wb_packet.wb_data;
+                    fwd_packet.fwd_rs2_enable   <= memin_wb_packet.wb_enable;
                 end
                 4'b0011: begin
-                    fwd_packet.fwd_rs1_data     <= ex2mem_wb_packet.wb_data;
-                    fwd_packet.fwd_rs1_enable   <= ex2mem_wb_packet.wb_enable;
-                    fwd_packet.fwd_rs2_data     <= ex2mem_wb_packet.wb_data;
-                    fwd_packet.fwd_rs2_enable   <= ex2mem_wb_packet.wb_enable;
+                    fwd_packet.fwd_rs1_data     <= memin_wb_packet.wb_data;
+                    fwd_packet.fwd_rs1_enable   <= memin_wb_packet.wb_enable;
+                    fwd_packet.fwd_rs2_data     <= memin_wb_packet.wb_data;
+                    fwd_packet.fwd_rs2_enable   <= memin_wb_packet.wb_enable;
                 end
                 4'b0100: begin
                     fwd_packet.fwd_rs1_data     <= exout_wb_packet.wb_data;
@@ -81,16 +82,16 @@ module dependency_ctrl (
                 4'b0110: begin
                     fwd_packet.fwd_rs1_data     <= exout_wb_packet.wb_data;
                     fwd_packet.fwd_rs1_enable   <= exout_wb_packet.wb_enable;
-                    fwd_packet.fwd_rs2_data     <= ex2mem_wb_packet.wb_data;
-                    fwd_packet.fwd_rs2_enable   <= ex2mem_wb_packet.wb_enable;
+                    fwd_packet.fwd_rs2_data     <= memin_wb_packet.wb_data;
+                    fwd_packet.fwd_rs2_enable   <= memin_wb_packet.wb_enable;
                 end
                 4'b1000: begin
                     fwd_packet.fwd_rs2_data     <= exout_wb_packet.wb_data;
                     fwd_packet.fwd_rs2_enable   <= exout_wb_packet.wb_enable;
                 end
                 4'b1001: begin
-                    fwd_packet.fwd_rs1_data     <= ex2mem_wb_packet.wb_data;
-                    fwd_packet.fwd_rs1_enable   <= ex2mem_wb_packet.wb_enable;
+                    fwd_packet.fwd_rs1_data     <= memin_wb_packet.wb_data;
+                    fwd_packet.fwd_rs1_enable   <= memin_wb_packet.wb_enable;
                     fwd_packet.fwd_rs2_data     <= exout_wb_packet.wb_data;
                     fwd_packet.fwd_rs2_enable   <= exout_wb_packet.wb_enable;
                 end
