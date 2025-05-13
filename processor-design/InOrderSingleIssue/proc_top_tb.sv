@@ -15,6 +15,10 @@ initial begin
     //proc_top_inst.if_stage_inst.imem.mem_array[2]   = 32'h001100b3; // ADD x1, x2, x1
     proc_top_inst.if_stage_inst.imem.mem_array[3]   = 32'h40208133; // SUB x2, x1, x2
     proc_top_inst.if_stage_inst.imem.mem_array[4]   = 32'h402080b3; // SUB x1, x1, x2
+    proc_top_inst.if_stage_inst.imem.mem_array[5]   = 32'hffd08093; // ADDI x1, x1, -3
+    proc_top_inst.if_stage_inst.imem.mem_array[6]   = 32'h0020a023; // SW x2, 0(x1)
+    //proc_top_inst.if_stage_inst.imem.mem_array[5]   = 32'hfe20aea3; // SW x2, -3(x1)
+    proc_top_inst.if_stage_inst.imem.mem_array[7]   = 32'h0000a103; // LW x3, 0(x1)
 
     #0 resetn = 0; // Assert reset
     #20 resetn = 1; // Deassert reset
