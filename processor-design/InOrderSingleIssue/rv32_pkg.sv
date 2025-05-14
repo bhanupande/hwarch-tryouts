@@ -163,6 +163,7 @@ package rv32_pkg;
         logic [4:0] rs1_sel;    // Source register 1 selection
         logic [4:0] rs2_sel;    // Source register 2 selection
         logic valid_opcode;     // Valid opcode signal
+        logic dont_forward;     // Don't forward signal
     } rv32_ex2mem_wb_packet_t;
 
     // *****************************************************************************************
@@ -178,6 +179,7 @@ package rv32_pkg;
         logic [4:0] rs1_sel;    // Source register 1 selection
         logic [4:0] rs2_sel;    // Source register 2 selection
         logic valid_opcode;     // Valid opcode signal
+        logic dont_forward;     // Don't forward signal
     } rv32_mem2wb_packet_t;
 
     // *****************************************************************************************
@@ -232,6 +234,7 @@ package rv32_pkg;
         logic [31:0] imm32;      // Immediate value (if applicable)
         logic [31:0] pc;         // Program counter
         logic valid_opcode;      // Valid opcode signal
+        logic dont_forward;      // Don't forward signal
     } rv32_instr_packet_t;
 
     // *****************************************************************************************
@@ -255,6 +258,7 @@ package rv32_pkg;
         logic [31:0] rs1_value;  // Value of source register 1
         logic [31:0] rs2_value;  // Value of source register 2
         logic valid_opcode;      // Valid opcode signal
+        logic dont_forward;      // Don't forward signal
     } rv32_issue_packet_t;
 
     // *****************************************************************************************
@@ -270,6 +274,17 @@ package rv32_pkg;
         logic [31:0] instruction; // Instruction fetched
     } rv32_if_packet_t;
 
+    // ***********************************************************************
+    function logic dont_forward(input [31:0] instruction);
+    begin
+        case (instruction[31:0])
+            32'h00000013: // NOP
+                dont_forward = 1'b1;
+            default:
+                dont_forward = 1'b0;
+        endcase
+    end
+    endfunction
     // ***********************************************************************
     function logic is_valid_opcode(input rv32_opcode_t opcode);
     begin

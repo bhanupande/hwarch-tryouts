@@ -43,6 +43,7 @@ module execute_stage (
     // ***********************************************************************
     // Populate the write-back packet with appropriate values
     assign wb_packet.valid_opcode = issued_instruction_packet.valid_opcode; // Valid opcode for write-back
+    assign wb_packet.dont_forward = issued_instruction_packet.dont_forward; // Don't forward signal
     assign wb_packet.rs1_sel = issued_instruction_packet.rs1_sel; // Source register 1 selection
     assign wb_packet.rs2_sel = issued_instruction_packet.rs2_sel; // Source register 2 selection
     assign wb_packet.wb_addr = issued_instruction_packet.rd_sel; // Destination register

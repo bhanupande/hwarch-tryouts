@@ -43,7 +43,8 @@ module of_stage (
             imm32: 32'b0,                 // Default immediate value
             alu_op: ALU_OP_NOP,           // Default ALU operation (No Operation)
             pc: if_packet.pc,             // Pass through the program counter
-            valid_opcode: is_valid_opcode(opcode) // Check if opcode is valid
+            valid_opcode: is_valid_opcode(opcode), // Check if opcode is valid
+            dont_forward: dont_forward(instruction) // Check if forwarding is needed
         };
 
         // Decode based on opcode

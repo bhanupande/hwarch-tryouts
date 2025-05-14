@@ -49,15 +49,13 @@ module proc_top (
         .clk(clk),                          // Clock signal
         .resetn(resetn),                    // Active low reset signal
         .ifout_packet(if_packet_out),      // Instruction packet from IF stage
-        .ofin_packet(of_packet_in),        // Instruction packet to OF stage
         .ofout_packet(of_packet_out),      // Instruction packet from OF stage
-        .exin_packet(ex_packet_in),        // Instruction packet to EX stage
         .exout_wb_packet(exout_wb_packet),  // Write-back packet from EX stage
         .memin_wb_packet(ex2mem_wb_packet), // Write-back packet to MEM stage
         .memin_mem_packet(ex2mem_mem_packet), // Memory packet to MEM stage
         .memin_control_packet(ex2mem_control_packet), // Control packet to MEM stage
         .memout_packet(mem2wb_packet),      // Write-back packet from MEM stage
-        .wbin_packet(wb_out_packet),      // Write-back packet to WB stage
+        .wbout_packet(wb_out_packet),      // Write-back packet to WB stage
         .fwd_packet(fwd_packet),            // Forwarding packet for data hazards
         .stall_if(stall_if),                // Stall signal for IF stage
         .stall_ifof(stall_ifof),            // Stall signal for IF -> OF pipeline

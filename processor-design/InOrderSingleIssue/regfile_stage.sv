@@ -68,6 +68,7 @@ module regfile_stage (
 
         // Pass the valid opcode signal to indicate if the instruction is valid
         issue_packet.valid_opcode = instruction_packet.valid_opcode; // Forward valid opcode signal
+        issue_packet.dont_forward = instruction_packet.dont_forward; // Forward don't forward signal
     end
 
 endmodule

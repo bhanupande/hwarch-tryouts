@@ -36,6 +36,7 @@ module mem_stage (
     // Write-Back Packet Assignments
     // ***********************************************************************
     // Pass through or modify fields for the write-back stage
+    assign wb_out_packet.dont_forward = wb_in_packet.dont_forward; // Propagate don't forward signal
     assign wb_out_packet.valid_opcode = wb_in_packet.valid_opcode; // Propagate valid opcode signal
     assign wb_out_packet.rs1_sel = wb_in_packet.rs1_sel;           // Propagate source register 1 selection
     assign wb_out_packet.rs2_sel = wb_in_packet.rs2_sel;           // Propagate source register 2 selection
