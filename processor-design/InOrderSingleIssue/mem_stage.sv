@@ -44,7 +44,8 @@ module mem_stage (
     assign wb_out_packet.wb_addr = wb_in_packet.wb_addr;           // Propagate register address for write-back
     assign wb_out_packet.wb_data = mem_packet.read_enable ? load_data : wb_in_packet.wb_data; // Select data for write-back
     assign wb_out_packet.wb_enable = mem_packet.read_enable || wb_in_packet.wb_enable; // Enable write-back if memory read or previous stage enabled it
-
+    assign wb_out_packet.is_load = mem_packet.is_load; // Indicate if the operation is a load
+    assign wb_out_packet.is_store = mem_packet.is_store; // Indicate if the operation is a store
     // ***********************************************************************
     // Load and Store Data Processing
     // ***********************************************************************

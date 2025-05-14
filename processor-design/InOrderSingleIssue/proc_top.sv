@@ -48,20 +48,14 @@ module proc_top (
     dependency_ctrl dep_ctrl_inst (
         .clk(clk),                          // Clock signal
         .resetn(resetn),                    // Active low reset signal
-        .ifout_packet(if_packet_out),      // Instruction packet from IF stage
         .ofout_packet(of_packet_out),      // Instruction packet from OF stage
         .exout_wb_packet(exout_wb_packet),  // Write-back packet from EX stage
-        .memin_wb_packet(ex2mem_wb_packet), // Write-back packet to MEM stage
-        .memin_mem_packet(ex2mem_mem_packet), // Memory packet to MEM stage
-        .memin_control_packet(ex2mem_control_packet), // Control packet to MEM stage
+        .exout_mem_packet(exout_mem_packet), // Memory access packet from EX stage
         .memout_packet(mem2wb_packet),      // Write-back packet from MEM stage
         .wbout_packet(wb_out_packet),      // Write-back packet to WB stage
         .fwd_packet(fwd_packet),            // Forwarding packet for data hazards
         .stall_if(stall_if),                // Stall signal for IF stage
-        .stall_ifof(stall_ifof),            // Stall signal for IF -> OF pipeline
-        .stall_ofex(stall_ofex),            // Stall signal for IF -> OF -> EX pipeline
-        .stall_exmem(stall_exmem),          // Stall signal for IF -> OF -> EX -> MEM pipeline
-        .stall_memwb(stall_memwb)           // Stall signal for MEM -> WB pipeline
+        .stall_ifof(stall_ifof)            // Stall signal for IF -> OF pipeline
     );
 
     // ***********************************************************************
@@ -105,7 +99,7 @@ module proc_top (
         .din_packet(regfile_in_packet_out), // Input packet from Operand Fetch stage
         .clk(clk),                          // Clock signal
         .resetn(resetn),                    // Active low reset signal
-        .stall(stall_ofex),                 // Stall signal for OF -> EX pipeline
+        .stall(1'b0),                 // Stall signal for OF -> EX pipeline
         .dout_packet(ex_packet_in)          // Output packet to Execute stage
     );
 
@@ -130,7 +124,7 @@ module proc_top (
         .din_packet(exout_wb_packet),   // Input write-back packet from EX stage
         .clk(clk),                      // Clock signal
         .resetn(resetn),                // Active low reset signal
-        .stall(stall_exmem),            // Stall signal for EX -> MEM pipeline
+        .stall(1'b0),            // Stall signal for EX -> MEM pipeline
         .dout_packet(ex2mem_wb_packet)  // Output write-back packet to MEM stage
     );
 
@@ -140,7 +134,7 @@ module proc_top (
         .din_packet(exout_mem_packet),  // Input memory packet from EX stage
         .clk(clk),                      // Clock signal
         .resetn(resetn),                // Active low reset signal
-        .stall(stall_exmem),            // Stall signal for EX -> MEM pipeline
+        .stall(1'b0),            // Stall signal for EX -> MEM pipeline
         .dout_packet(ex2mem_mem_packet) // Output memory packet to MEM stage
     );
 
@@ -150,7 +144,7 @@ module proc_top (
         .din_packet(exout_control_packet), // Input control packet from EX stage
         .clk(clk),                         // Clock signal
         .resetn(resetn),                   // Active low reset signal
-        .stall(stall_exmem),               // Stall signal for EX -> MEM pipeline
+        .stall(1'b0),               // Stall signal for EX -> MEM pipeline
         .dout_packet(ex2mem_control_packet) // Output control packet to MEM stage
     );
 
@@ -175,7 +169,7 @@ module proc_top (
         .din_packet(mem2wb_packet),   // Input write-back packet from MEM stage
         .clk(clk),                    // Clock signal
         .resetn(resetn),              // Active low reset signal
-        .stall(stall_memwb),          // Stall signal for MEM -> WB pipeline
+        .stall(1'b0),          // Stall signal for MEM -> WB pipeline
         .dout_packet(wb_out_packet)   // Output write-back packet to WB stage
     );
 

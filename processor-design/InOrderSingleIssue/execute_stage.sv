@@ -78,6 +78,8 @@ module execute_stage (
     // Memory Packet Assignments
     // ***********************************************************************
     // Populate the memory packet with load/store operation details
+    assign mem_packet.is_load = mem_packet.read_enable; // Memory read operation
+    assign mem_packet.is_store = mem_packet.write_enable; // Memory write operation
     assign mem_packet.read_enable = (alu_op == ALU_OP_LB) || (alu_op == ALU_OP_LH) || (alu_op == ALU_OP_LW) ||
                                     (alu_op == ALU_OP_LBU) || (alu_op == ALU_OP_LHU); // Enable memory read for load operations
     assign mem_packet.write_enable = (alu_op == ALU_OP_SB) || (alu_op == ALU_OP_SH) || (alu_op == ALU_OP_SW); // Enable memory write for store operations

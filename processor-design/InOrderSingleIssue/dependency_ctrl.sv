@@ -2,20 +2,14 @@ import rv32_pkg::*; // Import the package for constants and types
 module dependency_ctrl (
     input logic clk,
     input logic resetn,
-    input rv32_if_packet_t ifout_packet,
     input rv32_instr_packet_t ofout_packet,
     input rv32_ex2mem_wb_packet_t exout_wb_packet,
-    input rv32_ex2mem_wb_packet_t memin_wb_packet,
-    input rv32_mem_packet_t memin_mem_packet,
-    input rv32_ex_control_packet_t memin_control_packet,
+    input rv32_mem_packet_t exout_mem_packet,
     input rv32_mem2wb_packet_t memout_packet,
     input rv32_mem2wb_packet_t wbout_packet,
     output rv32_fwd_packet_t fwd_packet,
     output logic stall_if,
-    output logic stall_ifof,
-    output logic stall_ofex,
-    output logic stall_exmem,
-    output logic stall_memwb
+    output logic stall_ifof
 );
 
     localparam NOP = 32'h00000013;
@@ -47,6 +41,12 @@ module dependency_ctrl (
     logic ex_valid_opcode;
     logic mem_valid_opcode;
     logic wb_valid_opcode;
+
+    logic rs1_ofoutstg_matches_exlsaddr;
+    logic rs2_ofoutstg_matches_exlsaddr;
+
+    assign rs1_ofoutstg_matches_exlsaddr = (rs1_ofoutstg == exout_mem_packet.addr) && of_valid_opcode && (exout_mem_packet.is_load || exout_mem_packet.is_store);
+    assign rs2_ofoutstg_matches_exlsaddr = (rs2_ofoutstg == exout_mem_packet.addr) && of_valid_opcode && (exout_mem_packet.is_load || exout_mem_packet.is_store);
 
     assign of_valid_opcode  = ~ofout_packet.dont_forward && ofout_packet.valid_opcode;
     assign ex_valid_opcode  = ~exout_wb_packet.dont_forward && exout_wb_packet.valid_opcode;
@@ -178,11 +178,8 @@ module dependency_ctrl (
     end
 
     always_comb begin
-        stall_memwb = 1'b0;
-        stall_exmem = stall_memwb;
-        stall_ofex = stall_exmem || stall_memwb;
-        stall_ifof = stall_ofex || stall_exmem || stall_memwb;
-        stall_if = stall_ifof || stall_ofex || stall_exmem || stall_memwb;
+        stall_ifof = (rs1_ofoutstg_matches_exlsaddr || rs2_ofoutstg_matches_exlsaddr) && exout_mem_packet.is_load;
+        stall_if = stall_ifof;
     end
 
 endmodule

@@ -180,6 +180,8 @@ package rv32_pkg;
         logic [4:0] rs2_sel;    // Source register 2 selection
         logic valid_opcode;     // Valid opcode signal
         logic dont_forward;     // Don't forward signal
+        logic is_load;            // Load operation flag
+        logic is_store;           // Store operation flag
     } rv32_mem2wb_packet_t;
 
     // *****************************************************************************************
@@ -196,6 +198,8 @@ package rv32_pkg;
         logic [31:0] data;         // Data to be written or read
         logic read_enable;         // Read enable signal
         logic write_enable;        // Write enable signal
+        logic is_load;            // Load operation flag
+        logic is_store;           // Store operation flag
     } rv32_mem_packet_t;
 
     // *****************************************************************************************
