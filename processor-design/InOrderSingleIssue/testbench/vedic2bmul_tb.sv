@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module arithmetic_tb;
+module vedic2bmul_tb;
 
     // DUT inputs and outputs
     reg  [1:0] a, b;

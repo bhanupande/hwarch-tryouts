@@ -4,6 +4,8 @@
 //              and produces a 4-bit output (o). Uses half and full adders
 //              for partial product summation.
 // Author:      Bhanu Pande
+// Date        : 2025-05-16
+// Dependencies: rv32_pkg (for cla function)
 // ----------------------------------------------------------------------------
 
 import rv32_pkg::*; // Import package for half_add and full_add functions
