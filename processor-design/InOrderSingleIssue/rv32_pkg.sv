@@ -1,18 +1,18 @@
 // *****************************************************************************************
-// File: rv32_pkg.sv
-// Description: This package defines the instruction fields, control signals, and enums
-//              for RISC-V RV32I and RV32M instruction decoding. It includes opcode,
-//              funct3, and funct7 definitions, as well as ALU operation codes.
-// Author: Bhanu Pande
-// Date: May 9, 2025
+// File:        rv32_pkg.sv
+// Description: RISC-V RV32I/RV32M package. Defines instruction fields, control signals,
+//              enums, and pipeline packet structures for decoding and datapath control.
+// Author:      Bhanu Pande
+// Date:        May 9, 2025
+// Revision:    1.0
 // *****************************************************************************************
 
 package rv32_pkg;
 
     // *****************************************************************************************
     // ALU Operation Codes
-    // Description: Enumerates all ALU operations, including arithmetic, logical, load/store,
-    //              branch, and jump operations.
+    // Enumerates all ALU operations, including arithmetic, logical, load/store,
+    // branch, jump, and multiply/divide (RV32M) operations.
     // *****************************************************************************************
     typedef enum logic [5:0] {
         ALU_OP_ADD      = 6'd1,   // Addition
@@ -72,7 +72,7 @@ package rv32_pkg;
 
     // *****************************************************************************************
     // RV32I Opcode Values
-    // Description: Enumerates opcode values for RISC-V RV32I instructions.
+    // Enumerates opcode values for RISC-V RV32I instructions.
     // *****************************************************************************************
     typedef enum logic [6:0] {
         RV32I_LUI       = 7'b0110111, // Load upper immediate
@@ -90,7 +90,7 @@ package rv32_pkg;
 
     // *****************************************************************************************
     // RV32I Funct7 Values
-    // Description: Enumerates funct7 values for RISC-V RV32I instructions.
+    // Enumerates funct7 values for RISC-V RV32I instructions.
     // *****************************************************************************************
     typedef enum logic [6:0] {
         RV32I_F7_ADD    = 7'b0000000, // Addition
@@ -100,9 +100,8 @@ package rv32_pkg;
 
     // *****************************************************************************************
     // RV32I Funct3 Values
-    // Description: Enumerates funct3 values for RISC-V RV32I instructions.
-    // These values are used to differentiate between various ALU operations
-    // and other instruction types in the RISC-V ISA.
+    // Enumerates funct3 values for RISC-V RV32I instructions.
+    // Used to differentiate between ALU operations and other instruction types.
     // *****************************************************************************************
     typedef enum logic [2:0] {
         RV32I_F3_ADD    = 3'b000, // Addition
@@ -117,167 +116,124 @@ package rv32_pkg;
 
     // *****************************************************************************************
     // Forwarding Packet Structure
-    // Description: Defines the structure for forwarding data between pipeline stages.
-    // Fields:
-    //   - fwd_rs1_data: Forwarded data for source register 1.
-    //   - fwd_rs2_data: Forwarded data for source register 2.
-    //   - fwd_rs1_enable: Indicates if forwarding is enabled for rs1.
-    //   - fwd_rs2_enable: Indicates if forwarding is enabled for rs2.
+    // Used for forwarding data between pipeline stages to resolve hazards.
     // *****************************************************************************************
     typedef struct packed {
         logic [31:0] fwd_rs1_data; // Forwarded data for source register 1
         logic [31:0] fwd_rs2_data; // Forwarded data for source register 2
-        logic fwd_rs1_enable;      // Forwarding enable signal for rs1
-        logic fwd_rs2_enable;      // Forwarding enable signal for rs2
+        logic        fwd_rs1_enable; // Forwarding enable for rs1
+        logic        fwd_rs2_enable; // Forwarding enable for rs2
     } rv32_fwd_packet_t;
 
     // *****************************************************************************************
     // EX Control Packet Structure
-    // Description: Defines control signals for the execute stage of the pipeline.
-    // Fields:
-    //   - load_type: Specifies the type of load operation (e.g., LB, LH, LW).
-    //   - store_type: Specifies the type of store operation (e.g., SB, SH, SW).
+    // Control signals for the execute stage (e.g., load/store type).
     // *****************************************************************************************
     typedef struct packed {
-        logic [2:0] load_type;  // Load operation type (e.g., LB, LH, LW)
-        logic [1:0] store_type; // Store operation type (e.g., SB, SH, SW)
+        logic [2:0] load_type;  // Load operation type (LB, LH, LW, etc.)
+        logic [1:0] store_type; // Store operation type (SB, SH, SW)
     } rv32_ex_control_packet_t;
 
     // *****************************************************************************************
     // Write-Back Packet Structure (EX to MEM)
-    // Description: Defines the structure for data passed from the execute stage to the memory stage.
-    // Fields:
-    //   - wb_addr: Address of the destination register for write-back.
-    //   - wb_data: Data to be written back to the register file.
-    //   - wb_enable: Indicates if write-back is enabled.
-    //   - wb_pc: Program counter value associated with the instruction.
-    //   - rs1_sel: Source register 1 selection.
-    //   - rs2_sel: Source register 2 selection.
-    //   - valid_opcode: Indicates if the opcode is valid.
+    // Data passed from the execute stage to the memory stage.
     // *****************************************************************************************
     typedef struct packed {
-        logic [4:0] wb_addr;    // Register address to write back
-        logic [31:0] wb_data;   // Data to write back
-        logic wb_enable;        // Write-back enable signal
-        logic [31:0] wb_pc;     // Program counter for the instruction
-        logic [4:0] rs1_sel;    // Source register 1 selection
-        logic [4:0] rs2_sel;    // Source register 2 selection
-        logic valid_opcode;     // Valid opcode signal
-        logic dont_forward;     // Don't forward signal
+        logic [4:0]  wb_addr;      // Register address to write back
+        logic [31:0] wb_data;      // Data to write back
+        logic        wb_enable;    // Write-back enable
+        logic [31:0] wb_pc;        // Program counter for the instruction
+        logic [4:0]  rs1_sel;      // Source register 1 selection
+        logic [4:0]  rs2_sel;      // Source register 2 selection
+        logic        valid_opcode; // Valid opcode signal
+        logic        dont_forward; // Don't forward signal
     } rv32_ex2mem_wb_packet_t;
 
     // *****************************************************************************************
     // Write-Back Packet Structure (MEM to WB)
-    // Description: Defines the structure for data passed from the memory stage to the write-back stage.
-    // Fields are similar to the EX to MEM packet structure.
+    // Data passed from the memory stage to the write-back stage.
     // *****************************************************************************************
     typedef struct packed {
-        logic [4:0] wb_addr;    // Register address to write back
-        logic [31:0] wb_data;   // Data to write back
-        logic wb_enable;        // Write-back enable signal
-        logic [31:0] wb_pc;     // Program counter for the instruction
-        logic [4:0] rs1_sel;    // Source register 1 selection
-        logic [4:0] rs2_sel;    // Source register 2 selection
-        logic valid_opcode;     // Valid opcode signal
-        logic dont_forward;     // Don't forward signal
-        logic is_load;            // Load operation flag
-        logic is_store;           // Store operation flag
+        logic [4:0]  wb_addr;      // Register address to write back
+        logic [31:0] wb_data;      // Data to write back
+        logic        wb_enable;    // Write-back enable
+        logic [31:0] wb_pc;        // Program counter for the instruction
+        logic [4:0]  rs1_sel;      // Source register 1 selection
+        logic [4:0]  rs2_sel;      // Source register 2 selection
+        logic        valid_opcode; // Valid opcode signal
+        logic        dont_forward; // Don't forward signal
+        logic        is_load;      // Load operation flag
+        logic        is_store;     // Store operation flag
     } rv32_mem2wb_packet_t;
 
     // *****************************************************************************************
     // Memory Access Packet Structure
-    // Description: Defines signals for memory read/write operations.
-    // Fields:
-    //   - addr: Memory address for the operation.
-    //   - data: Data to be written or read.
-    //   - read_enable: Indicates if the operation is a read.
-    //   - write_enable: Indicates if the operation is a write.
+    // Signals for memory read/write operations.
     // *****************************************************************************************
     typedef struct packed {
         logic [31:0] addr;         // Memory address
         logic [31:0] data;         // Data to be written or read
-        logic read_enable;         // Read enable signal
-        logic write_enable;        // Write enable signal
-        logic is_load;            // Load operation flag
-        logic is_store;           // Store operation flag
+        logic        read_enable;  // Read enable signal
+        logic        write_enable; // Write enable signal
+        logic        is_load;      // Load operation flag
+        logic        is_store;     // Store operation flag
     } rv32_mem_packet_t;
 
     // *****************************************************************************************
     // Branch Packet Structure
-    // Description: Defines signals for branch operations in the pipeline.
-    // Fields:
-    //   - branch_type: Specifies the type of branch (e.g., BEQ, BNE).
-    //   - branch_pc: Program counter value for the branch instruction.
-    //   - branch_target: Target address for the branch.
-    //   - branch_taken: Indicates if the branch is taken.
+    // Signals for branch operations in the pipeline.
     // *****************************************************************************************
     typedef struct packed {
-        logic [2:0] branch_type;    // Branch type (e.g., BEQ, BNE)
-        logic [31:0] branch_pc;     // Program counter for branch instruction
-        logic [31:0] branch_target; // Branch target address
-        logic branch_taken;         // Branch taken signal
+        logic [2:0]  branch_type;    // Branch type (e.g., BEQ, BNE)
+        logic [31:0] branch_pc;      // Program counter for branch instruction
+        logic [31:0] branch_target;  // Branch target address
+        logic        branch_taken;   // Branch taken signal
     } rv32_branch_packet_t;
 
     // *****************************************************************************************
     // Instruction Packet Structure
-    // Description: Defines fields for decoded instructions in the pipeline.
-    // Fields:
-    //   - alu_op: ALU operation code.
-    //   - rd_sel: Destination register selection.
-    //   - rs1_sel: Source register 1 selection.
-    //   - rs2_sel: Source register 2 selection.
-    //   - imm32: Immediate value (if applicable).
-    //   - pc: Program counter value for the instruction.
-    //   - valid_opcode: Indicates if the opcode is valid.
+    // Fields for decoded instructions in the pipeline.
     // *****************************************************************************************
     typedef struct packed {
-        alu_op_t alu_op;         // ALU operation code
-        logic [4:0] rd_sel;      // Destination register
-        logic [4:0] rs1_sel;     // Source register 1
-        logic [4:0] rs2_sel;     // Source register 2
-        logic [31:0] imm32;      // Immediate value (if applicable)
-        logic [31:0] pc;         // Program counter
-        logic valid_opcode;      // Valid opcode signal
-        logic dont_forward;      // Don't forward signal
+        alu_op_t     alu_op;         // ALU operation code
+        logic [4:0]  rd_sel;         // Destination register
+        logic [4:0]  rs1_sel;        // Source register 1
+        logic [4:0]  rs2_sel;        // Source register 2
+        logic [31:0] imm32;          // Immediate value (if applicable)
+        logic [31:0] pc;             // Program counter
+        logic        valid_opcode;   // Valid opcode signal
+        logic        dont_forward;   // Don't forward signal
     } rv32_instr_packet_t;
 
     // *****************************************************************************************
     // Issue Packet Structure
-    // Description: Defines fields for issuing instructions to the execute stage.
-    // Fields:
-    //   - alu_op: ALU operation code.
-    //   - rd_sel: Destination register selection.
-    //   - imm32: Immediate value (if applicable).
-    //   - pc: Program counter value for the instruction.
-    //   - rs1_value: Value of source register 1.
-    //   - rs2_value: Value of source register 2.
+    // Fields for issuing instructions to the execute stage.
     // *****************************************************************************************
     typedef struct packed {
-        alu_op_t alu_op;         // ALU operation code
-        logic [4:0] rd_sel;      // Destination register
-        logic [4:0] rs1_sel;     // Source register 1
-        logic [4:0] rs2_sel;     // Source register 2
-        logic [31:0] imm32;      // Immediate value (if applicable)
-        logic [31:0] pc;         // Program counter
-        logic [31:0] rs1_value;  // Value of source register 1
-        logic [31:0] rs2_value;  // Value of source register 2
-        logic valid_opcode;      // Valid opcode signal
-        logic dont_forward;      // Don't forward signal
+        alu_op_t     alu_op;         // ALU operation code
+        logic [4:0]  rd_sel;         // Destination register
+        logic [4:0]  rs1_sel;        // Source register 1
+        logic [4:0]  rs2_sel;        // Source register 2
+        logic [31:0] imm32;          // Immediate value (if applicable)
+        logic [31:0] pc;             // Program counter
+        logic [31:0] rs1_value;      // Value of source register 1
+        logic [31:0] rs2_value;      // Value of source register 2
+        logic        valid_opcode;   // Valid opcode signal
+        logic        dont_forward;   // Don't forward signal
     } rv32_issue_packet_t;
 
     // *****************************************************************************************
     // IF-OF Packet Structure
-    // Description: Defines fields for passing data from the instruction fetch stage to
-    //              the decode stage.
-    // Fields:
-    //   - pc: Program counter value for the fetched instruction.
-    //   - instruction: The fetched instruction.
+    // Fields for passing data from the instruction fetch stage to the decode stage.
     // *****************************************************************************************
     typedef struct packed {
         logic [31:0] pc;          // Program counter
         logic [31:0] instruction; // Instruction fetched
     } rv32_if_packet_t;
 
+    // ***********************************************************************
+    // Function: dont_forward
+    // Returns 1 if the instruction should not be forwarded (e.g., NOP).
     // ***********************************************************************
     function logic dont_forward(input [31:0] instruction);
     begin
@@ -289,6 +245,10 @@ package rv32_pkg;
         endcase
     end
     endfunction
+
+    // ***********************************************************************
+    // Function: is_valid_opcode
+    // Returns 1 if the opcode is a valid RV32I opcode.
     // ***********************************************************************
     function logic is_valid_opcode(input rv32_opcode_t opcode);
     begin
@@ -310,6 +270,10 @@ package rv32_pkg;
         endcase
     end
     endfunction
+
+    // ***********************************************************************
+    // Function: no_dependency
+    // Returns 1 if the opcode does not create data dependencies (e.g., branch, fence, system).
     // ***********************************************************************
     function logic no_dependency(input rv32_opcode_t opcode);
     begin

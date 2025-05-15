@@ -38,44 +38,54 @@ module mem_stage (
     // Pass through or modify fields for the write-back stage
     assign wb_out_packet.dont_forward = wb_in_packet.dont_forward; // Propagate don't forward signal
     assign wb_out_packet.valid_opcode = wb_in_packet.valid_opcode; // Propagate valid opcode signal
-    assign wb_out_packet.rs1_sel = wb_in_packet.rs1_sel;           // Propagate source register 1 selection
-    assign wb_out_packet.rs2_sel = wb_in_packet.rs2_sel;           // Propagate source register 2 selection
-    assign wb_out_packet.wb_pc = wb_in_packet.wb_pc;               // Propagate program counter for write-back
-    assign wb_out_packet.wb_addr = wb_in_packet.wb_addr;           // Propagate register address for write-back
-    assign wb_out_packet.wb_data = mem_packet.read_enable ? load_data : wb_in_packet.wb_data; // Select data for write-back
-    assign wb_out_packet.wb_enable = mem_packet.read_enable || wb_in_packet.wb_enable; // Enable write-back if memory read or previous stage enabled it
-    assign wb_out_packet.is_load = mem_packet.is_load; // Indicate if the operation is a load
-    assign wb_out_packet.is_store = mem_packet.is_store; // Indicate if the operation is a store
+    assign wb_out_packet.rs1_sel      = wb_in_packet.rs1_sel;      // Propagate source register 1 selection
+    assign wb_out_packet.rs2_sel      = wb_in_packet.rs2_sel;      // Propagate source register 2 selection
+    assign wb_out_packet.wb_pc        = wb_in_packet.wb_pc;        // Propagate program counter for write-back
+    assign wb_out_packet.wb_addr      = wb_in_packet.wb_addr;      // Propagate register address for write-back
+
+    // Select data for write-back: if load, use loaded data; otherwise, use ALU result
+    assign wb_out_packet.wb_data      = mem_packet.read_enable ? load_data : wb_in_packet.wb_data;
+
+    // Enable write-back if memory read or previous stage enabled it
+    assign wb_out_packet.wb_enable    = mem_packet.read_enable || wb_in_packet.wb_enable;
+
+    // Indicate if the operation is a load or store
+    assign wb_out_packet.is_load      = mem_packet.is_load;
+    assign wb_out_packet.is_store     = mem_packet.is_store;
+
     // ***********************************************************************
     // Load and Store Data Processing
     // ***********************************************************************
+    // Process load data based on the load type specified in the control packet
+    // and process store data based on the store type.
     always_comb begin
-        // Process load data based on the load type specified in the control packet
+        // Load data selection based on load type
         case (control_packet.load_type)
-            3'b000: load_data = {{24{mem_read_data[7]}}, mem_read_data[7:0]};  // Load Byte (signed)
-            3'b001: load_data = {{16{mem_read_data[15]}}, mem_read_data[15:0]}; // Load Halfword (signed)
-            3'b010: load_data = mem_read_data;                                 // Load Word
-            3'b011: load_data = {24'h0, mem_read_data[7:0]};                   // Load Byte (unsigned)
-            3'b100: load_data = {16'h0, mem_read_data[15:0]};                  // Load Halfword (unsigned)
-            default: load_data = '0;                                          // Default case for invalid load type
+            3'b000: load_data = {{24{mem_read_data[7]}}, mem_read_data[7:0]};    // Load Byte (signed)
+            3'b001: load_data = {{16{mem_read_data[15]}}, mem_read_data[15:0]};  // Load Halfword (signed)
+            3'b010: load_data = mem_read_data;                                   // Load Word
+            3'b011: load_data = {24'h0, mem_read_data[7:0]};                     // Load Byte (unsigned)
+            3'b100: load_data = {16'h0, mem_read_data[15:0]};                    // Load Halfword (unsigned)
+            default: load_data = '0;                                             // Default case for invalid load type
         endcase
 
-        // Process store data based on the store type specified in the control packet
+        // Store data selection based on store type
         case (control_packet.store_type)
-            2'b00: mem_write_data = {{24{mem_packet.data[7]}}, mem_packet.data[7:0]};  // Store Byte
+            2'b00: mem_write_data = {{24{mem_packet.data[7]}}, mem_packet.data[7:0]};   // Store Byte
             2'b01: mem_write_data = {{16{mem_packet.data[15]}}, mem_packet.data[15:0]}; // Store Halfword
-            2'b10: mem_write_data = mem_packet.data;                                   // Store Word
-            default: mem_write_data = '0;                                             // Default case for invalid store type
+            2'b10: mem_write_data = mem_packet.data;                                    // Store Word
+            default: mem_write_data = '0;                                               // Default case for invalid store type
         endcase
     end
 
     // ***********************************************************************
     // Memory Module Instance
     // ***********************************************************************
-    // Instantiate the memory module for read and write operations
+    // Instantiate the memory module for read and write operations.
+    // The same address is used for both read and write (word-aligned).
     mem dmem (
-        .clk(clk),                          // Clock signal
-        .rstn(resetn),                      // Active low reset signal
+        .clk(clk),                              // Clock signal
+        .rstn(resetn),                          // Active low reset signal
         .write_enable(mem_packet.write_enable), // Enable write operation
         .read_enable(mem_packet.read_enable),   // Enable read operation
         .write_addr(mem_packet.addr),           // Write address
