@@ -15,7 +15,7 @@ module cla4badd (
     input  logic [3:0] a,    // 4-bit input operand a
     input  logic [3:0] b,    // 4-bit input operand b
     input  logic       cin,  // Carry input
-    output logic [4:0] sum,  // 5-bit output sum (4 bits + carry)
+    output logic [3:0] sum,  // 4-bit output sum (4 bits + carry)
     output logic       cout  // Carry output
 );
 
@@ -24,7 +24,6 @@ module cla4badd (
     logic [4:0] cint;          // Carry chain (cint[0]=cin, cint[4]=final carry)
 
     // Assign carry-out and MSB of sum
-    assign sum[4] = cint[4];
     assign cout   = cint[4];
 
     // Carry chain initialization

@@ -5,7 +5,8 @@ module cla4badd_tb;
     // DUT inputs and outputs
     logic [3:0] a, b;
     logic       cin;
-    logic [4:0] sum;
+    logic [3:0] sum;
+    logic       cout;
 
     // Instantiate the DUT
     cla4badd dut (
@@ -34,11 +35,11 @@ module cla4badd_tb;
             expected = a + b + cin;
 
             // Self-check
-            if (sum !== expected) begin
-                $display("ERROR: a=%0d, b=%0d, sum=%0d, expected=%0d", a, b, sum, expected);
+            if ({cout,sum} !== expected) begin
+                $display("ERROR: a=%0d, b=%0d, sum=%0d, expected=%0d", a, b, {cout,sum}, expected);
                 errors = errors + 1;
             end else begin
-                $display("PASS: a=%0d, b=%0d, sum=%0d", a, b, sum);
+                $display("PASS: a=%0d, b=%0d, sum=%0d", a, b, {cout,sum});
             end
             #4; // Wait before next input
         end
