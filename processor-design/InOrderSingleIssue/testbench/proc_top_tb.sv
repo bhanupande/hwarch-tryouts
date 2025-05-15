@@ -18,7 +18,7 @@ initial begin
     proc_top_inst.if_stage_inst.imem.mem_array[6]   = 32'h0020a023; // SW x2, 0(x1)
     proc_top_inst.if_stage_inst.imem.mem_array[7]   = 32'h0000a183; // LW x3, 0(x1)
     proc_top_inst.if_stage_inst.imem.mem_array[8]   = 32'h0c310463; // BEQ x2, x3, 200
-    proc_top_inst.if_stage_inst.imem.mem_array[58] = 32'h01908093; // ADDI x1, x1, 25
+    proc_top_inst.if_stage_inst.imem.mem_array[58]  = 32'h01908093; // ADDI x1, x1, 25
 
 
     #0 resetn = 0; // Assert reset

@@ -249,6 +249,7 @@ package rv32_pkg;
     // ***********************************************************************
     // Function: is_valid_opcode
     // Returns 1 if the opcode is a valid RV32I opcode.
+    // Used to filter out illegal or reserved opcodes during decode.
     // ***********************************************************************
     function logic is_valid_opcode(input rv32_opcode_t opcode);
     begin
@@ -264,16 +265,18 @@ package rv32_pkg;
             7'b0110011, // OP
             7'b0001111, // FENCE
             7'b1110011: // SYSTEM
-                is_valid_opcode = 1'b1;
+                is_valid_opcode = 1'b1; // Recognized as valid
             default:
-                is_valid_opcode = 1'b0;
+                is_valid_opcode = 1'b0; // Not a valid opcode
         endcase
     end
     endfunction
 
     // ***********************************************************************
     // Function: no_dependency
-    // Returns 1 if the opcode does not create data dependencies (e.g., branch, fence, system).
+    // Returns 1 if the opcode does not create data dependencies.
+    // Used to identify instructions that do not write to registers,
+    // such as branches, fences, and system instructions.
     // ***********************************************************************
     function logic no_dependency(input rv32_opcode_t opcode);
     begin
@@ -281,13 +284,25 @@ package rv32_pkg;
             7'b1100011, // BRANCH
             7'b0001111, // FENCE
             7'b1110011: // SYSTEM
-                no_dependency = 1'b1;
+                no_dependency = 1'b1; // No data dependency
             default:
-                no_dependency = 1'b0;
+                no_dependency = 1'b0; // May have data dependency
         endcase
     end
     endfunction
     // ***********************************************************************
 
+    // ***********************************************************************
+    // Function: half_add
+    // Returns a 2-bit result of a half adder for two input bits.
+    // half_add[0] = sum (a XOR b)
+    // half_add[1] = carry (a AND b)
+    // ***********************************************************************
+    function logic [1:0] half_add (input logic a, input logic b);
+        begin
+            half_add[0] = a ^ b; // Sum bit
+            half_add[1] = a & b; // Carry bit
+        end
+    endfunction
 endpackage : rv32_pkg
 
