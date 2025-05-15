@@ -281,12 +281,12 @@ package rv32_pkg;
     function logic no_dependency(input rv32_opcode_t opcode);
     begin
         case (opcode)
-            7'b1100011, // BRANCH
-            7'b0001111, // FENCE
-            7'b1110011: // SYSTEM
-                no_dependency = 1'b1; // No data dependency
+            7'b1100011, // BRANCH: Conditional branch instructions (BEQ, BNE, etc.)
+            7'b0001111, // FENCE:  Memory barrier instructions (FENCE, FENCE.I)
+            7'b1110011: // SYSTEM: System instructions (ECALL, EBREAK, CSR)
+                no_dependency = 1'b1; // No data dependency, does not write to registers
             default:
-                no_dependency = 1'b0; // May have data dependency
+                no_dependency = 1'b0; // May have data dependency (writes to registers)
         endcase
     end
     endfunction
@@ -300,8 +300,23 @@ package rv32_pkg;
     // ***********************************************************************
     function logic [1:0] half_add (input logic a, input logic b);
         begin
-            half_add[0] = a ^ b; // Sum bit
-            half_add[1] = a & b; // Carry bit
+            half_add[0] = a ^ b; // Sum bit: XOR of inputs
+            half_add[1] = a & b; // Carry bit: AND of inputs
+        end
+    endfunction
+
+    // ***********************************************************************
+    // Function: cla
+    // Returns a 3-bit result for a 1-bit carry lookahead adder.
+    // cla[0] = a XOR b (sum without carry-in)
+    // cla[1] = a AND b (carry generate)
+    // cla[2] = (a XOR b) XOR c (sum with carry-in)
+    // ***********************************************************************
+    function logic [2:0] cla (input logic a, input logic b, input logic c);
+        begin
+            cla[0] = a ^ b;       // Propagate: XOR of a and b
+            cla[1] = a & b;       // Generate: AND of a and b
+            cla[2] = cla[0] ^ c;  // Sum with carry-in
         end
     endfunction
 endpackage : rv32_pkg
