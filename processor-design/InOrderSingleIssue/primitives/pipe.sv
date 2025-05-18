@@ -17,18 +17,23 @@ module pipe #(
     input  logic clk,         // Clock signal
     input  logic resetn,      // Active-low reset signal
     input  logic stall,       // Stall signal
+    input  logic flush,      // Flush signal
     output PTYPE dout_packet  // Output packet
 );
 
     // Sequential logic for pipeline register
     always_ff @(posedge clk or negedge resetn) begin
         if (~resetn) begin
-            // Reset output packet to zero
+            // On reset, clear the output packet to zero
+            dout_packet <= '0;
+        end else if (flush) begin
+            // On flush, clear the output packet to zero
             dout_packet <= '0;
         end else if (~stall) begin
-            // Pass input packet to output when not stalled
+            // On normal operation (not stalled), transfer input to output
             dout_packet <= din_packet;
         end
+        // If stalled, retain the previous value of dout_packet (no assignment)
     end
 
 endmodule

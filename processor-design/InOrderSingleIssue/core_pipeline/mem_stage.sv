@@ -15,6 +15,7 @@ module mem_stage (
     input rv32_ex2mem_wb_packet_t wb_in_packet,   // Input write-back packet from the execute stage
     input rv32_ex_control_packet_t control_packet, // Input control packet containing load/store type
     input rv32_mem_packet_t mem_packet,           // Input memory access packet with read/write details
+    output logic dmem_ready,                     // Memory ready signal
     output rv32_mem2wb_packet_t wb_out_packet     // Output write-back packet for the next stage
 );
 
@@ -83,7 +84,7 @@ module mem_stage (
     // ***********************************************************************
     // Instantiate the memory module for read and write operations.
     // The same address is used for both read and write (word-aligned).
-    mem dmem (
+    mem_ctrl dmem (
         .clk(clk),                              // Clock signal
         .rstn(resetn),                          // Active low reset signal
         .write_enable(mem_packet.write_enable), // Enable write operation
@@ -91,6 +92,7 @@ module mem_stage (
         .write_addr(mem_packet.addr),           // Write address
         .read_addr(mem_packet.addr),            // Read address (assuming word-aligned addresses)
         .write_data(mem_write_data),            // Data to write to memory
+        .mem_ready(dmem_ready),                 // Memory ready signal
         .read_data(mem_read_data)               // Data read from memory
     );
 

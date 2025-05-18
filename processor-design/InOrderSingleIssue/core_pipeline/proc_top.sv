@@ -41,6 +41,7 @@ module proc_top (
     logic stall_ofex;         // Stall signal for OF -> EX pipeline (unused here)
     logic stall_exmem;        // Stall signal for EX -> MEM pipeline (unused here)
     logic stall_memwb;        // Stall signal for MEM -> WB pipeline (unused here)
+    logic dmem_ready;        // Memory ready signal from MEM stage
 
     // ==============================================================================
     // Dependency Control Module
@@ -49,6 +50,8 @@ module proc_top (
     dependency_ctrl dep_ctrl_inst (
         .clk(clk),
         .resetn(resetn),
+        .dmem_ready(dmem_ready),              // Data Memory ready signal
+        .imem_ready(if_packet_out.mem_ready), // Instruction Memory ready signal
         .ofout_packet(of_packet_out),         // From OF stage
         .exout_wb_packet(exout_wb_packet),    // From EX stage
         .exout_mem_packet(exout_mem_packet),  // From EX stage (for loads/stores)
@@ -56,7 +59,10 @@ module proc_top (
         .wbout_packet(wb_out_packet),         // From WB stage
         .fwd_packet(fwd_packet),              // Forwarding signals
         .stall_if(stall_if),                  // IF stage stall
-        .stall_ifof(stall_ifof)               // IF/OF pipeline stall
+        .stall_ifof(stall_ifof),              // IF/OF pipeline stall
+        .stall_ofex(stall_ofex),              // OF/EX pipeline stall
+        .stall_exmem(stall_exmem),            // EX/MEM pipeline stall
+        .stall_memwb(stall_memwb)             // MEM/WB pipeline stall
     );
 
     // ==============================================================================
@@ -81,6 +87,7 @@ module proc_top (
         .din_packet(if_packet_out),
         .clk(clk),
         .resetn(resetn),
+        .flush(ex2if_branch_packet.branch_taken), // Flush on branch taken
         .stall(stall_ifof),                   // Stall from dependency control
         .dout_packet(of_packet_in)
     );
@@ -104,7 +111,8 @@ module proc_top (
         .din_packet(regfile_in_packet_out),
         .clk(clk),
         .resetn(resetn),
-        .stall(1'b0),                         // No stall for OF -> EX
+        .flush(ex2if_branch_packet.branch_taken), // Flush on branch taken
+        .stall(stall_ofex),                         // No stall for OF -> EX
         .dout_packet(ex_packet_in)
     );
 
@@ -131,7 +139,8 @@ module proc_top (
         .din_packet(exout_wb_packet),
         .clk(clk),
         .resetn(resetn),
-        .stall(1'b0),                         // No stall for EX -> MEM
+        .flush(1'b0), // Flush on branch taken
+        .stall(stall_exmem),                         // No stall for EX -> MEM
         .dout_packet(ex2mem_wb_packet)
     );
 
@@ -141,7 +150,8 @@ module proc_top (
         .din_packet(exout_mem_packet),
         .clk(clk),
         .resetn(resetn),
-        .stall(1'b0),
+        .flush(1'b0), // Flush on branch taken
+        .stall(stall_exmem),
         .dout_packet(ex2mem_mem_packet)
     );
 
@@ -151,7 +161,8 @@ module proc_top (
         .din_packet(exout_control_packet),
         .clk(clk),
         .resetn(resetn),
-        .stall(1'b0),
+        .flush(1'b0), // Flush on branch taken
+        .stall(stall_exmem),
         .dout_packet(ex2mem_control_packet)
     );
 
@@ -165,6 +176,7 @@ module proc_top (
         .wb_in_packet(ex2mem_wb_packet),         // Write-back info from EX
         .control_packet(ex2mem_control_packet),  // Control signals from EX
         .mem_packet(ex2mem_mem_packet),          // Memory access info from EX
+        .dmem_ready(dmem_ready),                // Memory ready signal
         .wb_out_packet(mem2wb_packet)            // Output to MEM -> WB pipeline
     );
 
@@ -178,7 +190,7 @@ module proc_top (
         .din_packet(mem2wb_packet),
         .clk(clk),
         .resetn(resetn),
-        .stall(1'b0),
+        .stall(stall_memwb), // No stall for MEM -> WB
         .dout_packet(wb_out_packet)
     );
 

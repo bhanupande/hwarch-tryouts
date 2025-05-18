@@ -13,6 +13,8 @@ import rv32_pkg::*; // Import the package for constants and types
 module dependency_ctrl (
     input  logic clk,
     input  logic resetn,
+    input  logic dmem_ready,       // Data Memory ready signal
+    input  logic imem_ready,       // Instruction Memory ready signal
     input  rv32_instr_packet_t    ofout_packet,      // Output from OF stage
     input  rv32_ex2mem_wb_packet_t exout_wb_packet,  // Output from EX stage
     input  rv32_mem_packet_t      exout_mem_packet,  // Output from EX/MEM stage (for load/store)
@@ -20,7 +22,10 @@ module dependency_ctrl (
     input  rv32_mem2wb_packet_t   wbout_packet,      // Output from WB stage
     output rv32_fwd_packet_t      fwd_packet,        // Forwarding data/control signals
     output logic                  stall_if,          // Stall signal for IF stage
-    output logic                  stall_ifof         // Stall signal for IF/OF pipeline register
+    output logic                  stall_ifof,        // Stall signal for IF/OF pipeline register
+    output logic                  stall_ofex,        // Stall signal for OF/EX pipeline register
+    output logic                  stall_exmem,       // Stall signal for EX/MEM pipeline register
+    output logic                  stall_memwb        // Stall signal for MEM/WB pipeline register
 );
 
     // =========================================================================
@@ -123,7 +128,9 @@ module dependency_ctrl (
             fwd_packet.fwd_rs2_data   <= 32'h0;
             fwd_packet.fwd_rs1_enable <= 1'b0;
             fwd_packet.fwd_rs2_enable <= 1'b0;
-        end else begin
+        // If the data memory (dmem) is ready, execute the corresponding logic for memory operations.
+        // This condition typically handles the case where a memory access has completed and the pipeline can proceed.
+        end else if (dmem_ready) begin
             casex (fwd_packet_sel)
                 // Forward from EX stage to both rs1 and rs2
                 6'b11xxxx: begin
@@ -218,7 +225,7 @@ module dependency_ctrl (
                     fwd_packet.fwd_rs1_data   <= fwd_data_wboutstg;
                     fwd_packet.fwd_rs1_enable <= fwd_enable_wboutstg;
                 end
-                // No forwarding needed
+                // No forwarding needed: keep previous data, disable enables
                 default: begin
                     fwd_packet.fwd_rs1_data   <= fwd_packet.fwd_rs1_data;
                     fwd_packet.fwd_rs2_data   <= fwd_packet.fwd_rs2_data;
@@ -234,8 +241,14 @@ module dependency_ctrl (
     // =========================================================================
     // Stall if OF stage needs data from a load in EX stage (RAW hazard)
     always_comb begin
-        stall_ifof = (rs1_ofoutstg_matches_exlsaddr || rs2_ofoutstg_matches_exlsaddr) && exout_mem_packet.is_load;
-        stall_if   = stall_ifof;
+        // Assert stall if either rs1 or rs2 in OF matches EX load/store address and EX is a load
+        stall_ifof = ((rs1_ofoutstg_matches_exlsaddr || rs2_ofoutstg_matches_exlsaddr) &&
+                     exout_mem_packet.is_load) || ~dmem_ready || ~imem_ready;
+        stall_if   = ((rs1_ofoutstg_matches_exlsaddr || rs2_ofoutstg_matches_exlsaddr) &&
+                     exout_mem_packet.is_load) || ~dmem_ready;
+        stall_ofex = ~dmem_ready;
+        stall_exmem = ~dmem_ready;
+        stall_memwb = ~dmem_ready;
     end
 
 endmodule

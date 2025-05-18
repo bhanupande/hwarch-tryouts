@@ -229,6 +229,7 @@ package rv32_pkg;
     typedef struct packed {
         logic [31:0] pc;          // Program counter
         logic [31:0] instruction; // Instruction fetched
+        logic mem_ready;       // Memory ready signal
     } rv32_if_packet_t;
 
     // ***********************************************************************

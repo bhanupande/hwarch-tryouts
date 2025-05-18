@@ -19,23 +19,24 @@ module if_stage (
 
     // Internal signal to enable instruction memory read
     logic imem_read_enable;
+    logic [31:0] pc_next; // Next PC value for instruction fetch
 
     // =========================================================================
     // PC Register and Control Logic
     // =========================================================================
     // Handles PC updates for normal execution, branch redirection, and stalling.
-    always @(posedge clk or negedge resetn) begin
+    always_ff @(posedge clk or negedge resetn) begin
         if (~resetn) begin
             // On reset: set PC to 0 and disable instruction memory read
-            if_packet_out.pc <= 32'b0;
+            pc_next <= 32'b0;
             imem_read_enable <= 1'b0;
-        end else if (~stall_fetch && branch_packet.branch_taken) begin
+        end else if (branch_packet.branch_taken) begin
             // On branch taken: update PC to branch target and enable memory read
-            if_packet_out.pc <= branch_packet.branch_target;
+            pc_next <= branch_packet.branch_target;
             imem_read_enable <= 1'b1;
         end else if (~stall_fetch && imem_read_enable) begin
             // Normal operation: increment PC by 4 (next instruction) and enable memory read
-            if_packet_out.pc <= if_packet_out.pc + 4;
+            pc_next <= pc_next + 4;
             imem_read_enable <= 1'b1;
         end else if (~stall_fetch) begin
             // No branch, no stall: enable memory read (PC remains unchanged)
@@ -46,18 +47,28 @@ module if_stage (
         end
     end
 
+    // PC output register logic
+    always_ff @(posedge clk or negedge resetn) begin
+        if (~resetn)
+            if_packet_out.pc <= 32'b0;      // On reset, set output PC to 0
+        else
+            if_packet_out.pc <= pc_next;    // Otherwise, update output PC to next value
+    end
+
     // =========================================================================
     // Instruction Memory Interface
     // =========================================================================
-    // Instantiates the instruction memory and connects the PC for instruction fetch.
-    mem imem (
+    // Instantiates the instruction memory controller and connects the PC for instruction fetch.
+    // Only read operations are performed in the IF stage.
+    mem_ctrl imem (
         .clk(clk),
         .rstn(resetn),
         .write_enable(1'b0),                   // No write operation in instruction fetch
         .read_enable(imem_read_enable),        // Enable read operation
         .write_addr(32'b0),                    // Not used
-        .read_addr(if_packet_out.pc[31:2]),    // Word-aligned read address
+        .read_addr(pc_next[31:2]),             // Word-aligned read address
         .write_data(32'b0),                    // Not used
+        .mem_ready(if_packet_out.mem_ready),   // Memory ready signal
         .read_data(if_packet_out.instruction)  // Output instruction
     );
 
