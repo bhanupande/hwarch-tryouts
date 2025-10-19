@@ -234,7 +234,7 @@ def run_traffic_class_examples(req=16, cycles=2000):
     print("=" * 60)
     
     # Define a few key test configurations - no hardcoded values!
-    policies = ['FixedPriority', 'RoundRobin', 'Random', 'WeightedRoundRobin']
+    policies = ['FixedPriority', 'RoundRobin', 'WeightedRoundRobin', 'Random', 'WeightedRandom']
     patterns = ['random', 'burst', 'uniform', 'sequential']
     traffics = ['mixed', 'real_time_only', 'isochronous_only', 'best_effort_only']
     modes = ['random', 'mean', 'median']
