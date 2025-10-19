@@ -234,10 +234,10 @@ def run_traffic_class_examples(req=16, cycles=2000):
     print("=" * 60)
     
     # Define a few key test configurations - no hardcoded values!
-    policies = ['FixedPriority', 'RoundRobin', 'WeightedRoundRobin', 'Random', 'WeightedRandom']
+    policies = ['FixedPriority', 'RoundRobin', 'WeightedRoundRobin']#, 'Random', 'WeightedRandom']
     patterns = ['random', 'burst', 'uniform', 'sequential']
     traffics = ['mixed', 'real_time_only', 'isochronous_only', 'best_effort_only']
-    modes = ['random', 'mean', 'median']
+    modes = ['median']#, 'mean', 'random']
     test_configs = []
     for pol in policies:
         for pat in patterns:
@@ -359,8 +359,8 @@ def run_traffic_class_examples(req=16, cycles=2000):
 
 def plot_performance_metrics():
     """
-    Generate comprehensive performance plots for all CSV files.
-    Creates visualizations for average latency, peak latency, and QoS rate.
+    Generate comprehensive performance plots with combined subplots for each traffic mix.
+    Creates 2x2 subplot layout for better comparison and overview.
     """
     # Set up plotting style
     plt.style.use('default')
@@ -374,15 +374,15 @@ def plot_performance_metrics():
         print("No CSV files found. Run the simulation first!")
         return
     
-    # Create plots for each traffic mix
+    # Create combined plots for each traffic mix
     for csv_file in csv_files:
         traffic_mix = csv_file.replace('traffic_report_', '').replace('.csv', '')
-        print(f"Generating plots for: {traffic_mix}")
+        print(f"Generating combined plot for: {traffic_mix}")
         
         # Read data
         df = pd.read_csv(os.path.join(script_dir, csv_file))
         
-        # Create figure with subplots - increased figure size and spacing
+        # Create figure with 2x2 subplots
         fig, axes = plt.subplots(2, 2, figsize=(20, 16))
         fig.suptitle(f'Arbiter Performance Analysis - {traffic_mix.replace("_", " ").title()} Traffic', 
                      fontsize=18, fontweight='bold', y=0.98)
@@ -390,7 +390,7 @@ def plot_performance_metrics():
         # Adjust spacing between subplots
         plt.subplots_adjust(hspace=0.35, wspace=0.25, top=0.92, bottom=0.12, left=0.08, right=0.95)
         
-        # 1. Average Latency Comparison
+        # 1. Average Latency Comparison (Top Left)
         ax1 = axes[0, 0]
         bars1 = ax1.bar(range(len(df)), df['AvgLatency'], color=sns.color_palette("viridis", len(df)))
         ax1.set_title('Average Latency by Policy', fontweight='bold', fontsize=14, pad=15)
@@ -401,14 +401,20 @@ def plot_performance_metrics():
         ax1.tick_params(axis='y', labelsize=10)
         ax1.grid(True, alpha=0.3)
         
-        # Add value labels on bars - only for readable values
+        # Adjust Y-axis and add value labels
+        if len(df) > 0:
+            max_val = df['AvgLatency'].max()
+            ax1.set_ylim(0, max_val * 1.15)
+        
         for i, bar in enumerate(bars1):
             height = bar.get_height()
-            if height > 0:  # Only show labels for non-zero values
-                ax1.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
-                        f'{height:.1f}', ha='center', va='bottom', fontsize=9, fontweight='bold')
+            if height > 0:
+                y_offset = max(height * 0.03, height + 5)
+                ax1.text(bar.get_x() + bar.get_width()/2., y_offset,
+                        f'{height:.1f}', ha='center', va='bottom', fontsize=10, fontweight='bold',
+                        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8, edgecolor='none'))
         
-        # 2. Peak Latency Comparison
+        # 2. Peak Latency Comparison (Top Right)
         ax2 = axes[0, 1]
         bars2 = ax2.bar(range(len(df)), df['MaxLatency'], color=sns.color_palette("plasma", len(df)))
         ax2.set_title('Peak Latency by Policy', fontweight='bold', fontsize=14, pad=15)
@@ -419,14 +425,20 @@ def plot_performance_metrics():
         ax2.tick_params(axis='y', labelsize=10)
         ax2.grid(True, alpha=0.3)
         
-        # Add value labels on bars - only show significant values
+        # Adjust Y-axis and add value labels
+        if len(df) > 0:
+            max_val = df['MaxLatency'].max()
+            ax2.set_ylim(0, max_val * 1.12)
+        
         for i, bar in enumerate(bars2):
             height = bar.get_height()
-            if height > 10:  # Only show labels for significant latencies
-                ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
-                        f'{height:.0f}', ha='center', va='bottom', fontsize=9, fontweight='bold')
+            if height > 10:
+                y_offset = height + max(height * 0.02, 20)
+                ax2.text(bar.get_x() + bar.get_width()/2., y_offset,
+                        f'{height:.0f}', ha='center', va='bottom', fontsize=10, fontweight='bold',
+                        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8, edgecolor='none'))
         
-        # 3. QoS Rate Comparison
+        # 3. QoS Compliance Rate (Bottom Left)
         ax3 = axes[1, 0]
         bars3 = ax3.bar(range(len(df)), df['QoSRate'], color=sns.color_palette("coolwarm", len(df)))
         ax3.set_title('QoS Compliance Rate by Policy', fontweight='bold', fontsize=14, pad=15)
@@ -435,56 +447,83 @@ def plot_performance_metrics():
         ax3.set_xticks(range(len(df)))
         ax3.set_xticklabels(df['PolicyPattern'], rotation=45, ha='right', fontsize=10)
         ax3.tick_params(axis='y', labelsize=10)
-        ax3.set_ylim(0, 105)  # Slightly higher to accommodate labels
         ax3.grid(True, alpha=0.3)
         
-        # Add value labels on bars - only for significant values
+        # Adjust Y-axis and add value labels
+        if len(df) > 0:
+            max_qos = df['QoSRate'].max()
+            ax3.set_ylim(0, min(110, max_qos + 15))
+        
         for i, bar in enumerate(bars3):
             height = bar.get_height()
-            if height > 5:  # Only show labels for QoS rates > 5%
-                ax3.text(bar.get_x() + bar.get_width()/2., height + 1.5,
-                        f'{height:.1f}%', ha='center', va='bottom', fontsize=9, fontweight='bold')
+            if height > 2:
+                ax3.text(bar.get_x() + bar.get_width()/2., height + 2.5,
+                        f'{height:.1f}%', ha='center', va='bottom', fontsize=10, fontweight='bold',
+                        bbox=dict(boxstyle='round,pad=0.2', facecolor='yellow', alpha=0.7, edgecolor='orange'))
         
-        # 4. Service Rate vs QoS Rate Scatter Plot
+        # 4. Service Rate vs QoS Rate Scatter Plot (Bottom Right)
         ax4 = axes[1, 1]
-        scatter = ax4.scatter(df['ServiceRate'], df['QoSRate'], 
-                            c=df['AvgLatency'], s=120, alpha=0.8, 
-                            cmap='RdYlBu_r', edgecolors='black', linewidth=1.0)
-        ax4.set_title('Service Rate vs QoS Rate\n(Color = Avg Latency)', fontweight='bold', fontsize=14, pad=15)
+        
+        # Policy colors for consistency
+        policy_colors = {
+            'FixedPriority': '#FF6B6B',
+            'RoundRobin': '#4ECDC4',  
+            'Random': '#45B7D1',
+            'WeightedRoundRobin': '#96CEB4'
+        }
+        
+        # Plot points by policy
+        for policy_name, color in policy_colors.items():
+            policy_data = df[df['PolicyPattern'].str.startswith(policy_name)]
+            if not policy_data.empty:
+                ax4.scatter(policy_data['ServiceRate'], policy_data['QoSRate'], 
+                           c=color, s=120, alpha=0.8, 
+                           edgecolors='black', linewidth=1.0, label=policy_name)
+        
+        ax4.set_title('Service Rate vs QoS Rate by Policy', fontweight='bold', fontsize=14, pad=15)
         ax4.set_xlabel('Service Rate (%)', fontsize=12, labelpad=10)
         ax4.set_ylabel('QoS Rate (%)', fontsize=12, labelpad=10)
         ax4.tick_params(axis='both', labelsize=10)
         ax4.grid(True, alpha=0.3)
+        ax4.legend(loc='upper left', fontsize=10, framealpha=0.9)
         
-        # Add colorbar for scatter plot
-        cbar = plt.colorbar(scatter, ax=ax4, shrink=0.8)
-        cbar.set_label('Average Latency (cycles)', fontsize=11, labelpad=15)
-        cbar.ax.tick_params(labelsize=9)
+        # Add policy labels on points
+        for i, row in df.iterrows():
+            policy_name = row['PolicyPattern'].split('_')[0]
+            
+            # Clear abbreviations
+            if policy_name == 'FixedPriority':
+                label = 'FP'
+            elif policy_name == 'RoundRobin':
+                label = 'RR'
+            elif policy_name == 'WeightedRoundRobin':
+                label = 'WRR'
+            else:
+                label = policy_name[:3]
+            
+            ax4.annotate(label, (row['ServiceRate'], row['QoSRate']),
+                        xytext=(3, 3), textcoords='offset points',
+                        fontsize=8, fontweight='bold', alpha=0.8,
+                        bbox=dict(boxstyle='round,pad=0.1', facecolor='white', alpha=0.7))
         
-        # Add policy labels to scatter points - simplified and better positioned
-        for i, policy in enumerate(df['PolicyPattern']):
-            policy_short = policy.split('_')[0][:5]  # Slightly longer abbreviation
-            ax4.annotate(policy_short, 
-                        (df['ServiceRate'].iloc[i], df['QoSRate'].iloc[i]),
-                        xytext=(8, 8), textcoords='offset points',
-                        fontsize=8, alpha=0.9, fontweight='bold',
-                        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7, edgecolor='none'))
-        
-        # Save plot with better settings
+        # Save combined plot
         plot_filename = f"performance_analysis_{traffic_mix}.png"
         plot_path = os.path.join(script_dir, plot_filename)
         plt.savefig(plot_path, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
         print(f"  Saved: {plot_filename}")
         
-        # Show plot (optional - comment out if running in batch)
-        # plt.show()
         plt.close()
     
-    print(f"\nAll plots generated successfully!")
+    print(f"\nAll combined plots generated successfully!")
     print("Generated files:")
     for csv_file in csv_files:
         traffic_mix = csv_file.replace('traffic_report_', '').replace('.csv', '')
         print(f"  - performance_analysis_{traffic_mix}.png")
+
+
+
+
+
 
 
 if __name__ == "__main__":
