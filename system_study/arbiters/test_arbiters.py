@@ -382,88 +382,98 @@ def plot_performance_metrics():
         # Read data
         df = pd.read_csv(os.path.join(script_dir, csv_file))
         
-        # Create figure with subplots
-        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+        # Create figure with subplots - increased figure size and spacing
+        fig, axes = plt.subplots(2, 2, figsize=(20, 16))
         fig.suptitle(f'Arbiter Performance Analysis - {traffic_mix.replace("_", " ").title()} Traffic', 
-                     fontsize=16, fontweight='bold')
+                     fontsize=18, fontweight='bold', y=0.98)
+        
+        # Adjust spacing between subplots
+        plt.subplots_adjust(hspace=0.35, wspace=0.25, top=0.92, bottom=0.12, left=0.08, right=0.95)
         
         # 1. Average Latency Comparison
         ax1 = axes[0, 0]
         bars1 = ax1.bar(range(len(df)), df['AvgLatency'], color=sns.color_palette("viridis", len(df)))
-        ax1.set_title('Average Latency by Policy', fontweight='bold')
-        ax1.set_xlabel('Policy-Pattern')
-        ax1.set_ylabel('Average Latency (cycles)')
+        ax1.set_title('Average Latency by Policy', fontweight='bold', fontsize=14, pad=15)
+        ax1.set_xlabel('Policy-Pattern', fontsize=12, labelpad=10)
+        ax1.set_ylabel('Average Latency (cycles)', fontsize=12, labelpad=10)
         ax1.set_xticks(range(len(df)))
-        ax1.set_xticklabels(df['PolicyPattern'], rotation=45, ha='right')
+        ax1.set_xticklabels(df['PolicyPattern'], rotation=45, ha='right', fontsize=10)
+        ax1.tick_params(axis='y', labelsize=10)
         ax1.grid(True, alpha=0.3)
         
-        # Add value labels on bars
+        # Add value labels on bars - only for readable values
         for i, bar in enumerate(bars1):
             height = bar.get_height()
-            ax1.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
-                    f'{height:.1f}', ha='center', va='bottom', fontsize=8)
+            if height > 0:  # Only show labels for non-zero values
+                ax1.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
+                        f'{height:.1f}', ha='center', va='bottom', fontsize=9, fontweight='bold')
         
         # 2. Peak Latency Comparison
         ax2 = axes[0, 1]
         bars2 = ax2.bar(range(len(df)), df['MaxLatency'], color=sns.color_palette("plasma", len(df)))
-        ax2.set_title('Peak Latency by Policy', fontweight='bold')
-        ax2.set_xlabel('Policy-Pattern')
-        ax2.set_ylabel('Peak Latency (cycles)')
+        ax2.set_title('Peak Latency by Policy', fontweight='bold', fontsize=14, pad=15)
+        ax2.set_xlabel('Policy-Pattern', fontsize=12, labelpad=10)
+        ax2.set_ylabel('Peak Latency (cycles)', fontsize=12, labelpad=10)
         ax2.set_xticks(range(len(df)))
-        ax2.set_xticklabels(df['PolicyPattern'], rotation=45, ha='right')
+        ax2.set_xticklabels(df['PolicyPattern'], rotation=45, ha='right', fontsize=10)
+        ax2.tick_params(axis='y', labelsize=10)
         ax2.grid(True, alpha=0.3)
         
-        # Add value labels on bars
+        # Add value labels on bars - only show significant values
         for i, bar in enumerate(bars2):
             height = bar.get_height()
-            ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
-                    f'{height:.0f}', ha='center', va='bottom', fontsize=8)
+            if height > 10:  # Only show labels for significant latencies
+                ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.02,
+                        f'{height:.0f}', ha='center', va='bottom', fontsize=9, fontweight='bold')
         
         # 3. QoS Rate Comparison
         ax3 = axes[1, 0]
         bars3 = ax3.bar(range(len(df)), df['QoSRate'], color=sns.color_palette("coolwarm", len(df)))
-        ax3.set_title('QoS Compliance Rate by Policy', fontweight='bold')
-        ax3.set_xlabel('Policy-Pattern')
-        ax3.set_ylabel('QoS Rate (%)')
+        ax3.set_title('QoS Compliance Rate by Policy', fontweight='bold', fontsize=14, pad=15)
+        ax3.set_xlabel('Policy-Pattern', fontsize=12, labelpad=10)
+        ax3.set_ylabel('QoS Rate (%)', fontsize=12, labelpad=10)
         ax3.set_xticks(range(len(df)))
-        ax3.set_xticklabels(df['PolicyPattern'], rotation=45, ha='right')
-        ax3.set_ylim(0, 100)
+        ax3.set_xticklabels(df['PolicyPattern'], rotation=45, ha='right', fontsize=10)
+        ax3.tick_params(axis='y', labelsize=10)
+        ax3.set_ylim(0, 105)  # Slightly higher to accommodate labels
         ax3.grid(True, alpha=0.3)
         
-        # Add value labels on bars
+        # Add value labels on bars - only for significant values
         for i, bar in enumerate(bars3):
             height = bar.get_height()
-            ax3.text(bar.get_x() + bar.get_width()/2., height + 2,
-                    f'{height:.1f}%', ha='center', va='bottom', fontsize=8)
+            if height > 5:  # Only show labels for QoS rates > 5%
+                ax3.text(bar.get_x() + bar.get_width()/2., height + 1.5,
+                        f'{height:.1f}%', ha='center', va='bottom', fontsize=9, fontweight='bold')
         
         # 4. Service Rate vs QoS Rate Scatter Plot
         ax4 = axes[1, 1]
         scatter = ax4.scatter(df['ServiceRate'], df['QoSRate'], 
-                            c=df['AvgLatency'], s=100, alpha=0.7, 
-                            cmap='RdYlBu_r', edgecolors='black', linewidth=0.5)
-        ax4.set_title('Service Rate vs QoS Rate\n(Color = Avg Latency)', fontweight='bold')
-        ax4.set_xlabel('Service Rate (%)')
-        ax4.set_ylabel('QoS Rate (%)')
+                            c=df['AvgLatency'], s=120, alpha=0.8, 
+                            cmap='RdYlBu_r', edgecolors='black', linewidth=1.0)
+        ax4.set_title('Service Rate vs QoS Rate\n(Color = Avg Latency)', fontweight='bold', fontsize=14, pad=15)
+        ax4.set_xlabel('Service Rate (%)', fontsize=12, labelpad=10)
+        ax4.set_ylabel('QoS Rate (%)', fontsize=12, labelpad=10)
+        ax4.tick_params(axis='both', labelsize=10)
         ax4.grid(True, alpha=0.3)
         
         # Add colorbar for scatter plot
-        cbar = plt.colorbar(scatter, ax=ax4)
-        cbar.set_label('Average Latency (cycles)')
+        cbar = plt.colorbar(scatter, ax=ax4, shrink=0.8)
+        cbar.set_label('Average Latency (cycles)', fontsize=11, labelpad=15)
+        cbar.ax.tick_params(labelsize=9)
         
-        # Add policy labels to scatter points
+        # Add policy labels to scatter points - simplified and better positioned
         for i, policy in enumerate(df['PolicyPattern']):
-            ax4.annotate(policy.split('_')[0][:4], 
+            policy_short = policy.split('_')[0][:5]  # Slightly longer abbreviation
+            ax4.annotate(policy_short, 
                         (df['ServiceRate'].iloc[i], df['QoSRate'].iloc[i]),
-                        xytext=(5, 5), textcoords='offset points',
-                        fontsize=7, alpha=0.8)
+                        xytext=(8, 8), textcoords='offset points',
+                        fontsize=8, alpha=0.9, fontweight='bold',
+                        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7, edgecolor='none'))
         
-        # Adjust layout and save
-        plt.tight_layout()
-        
-        # Save plot
+        # Save plot with better settings
         plot_filename = f"performance_analysis_{traffic_mix}.png"
         plot_path = os.path.join(script_dir, plot_filename)
-        plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+        plt.savefig(plot_path, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
         print(f"  Saved: {plot_filename}")
         
         # Show plot (optional - comment out if running in batch)
