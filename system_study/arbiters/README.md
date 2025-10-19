@@ -5,7 +5,7 @@ This comprehensive testing framework evaluates the performance of different arbi
 ## Files
 
 - `arbiters.py` - Main Arbiter class implementation with QoS-aware policies
-- `test_arbiters.py` - Comprehensive traffic class testing framework (365 lines)
+- `test_arbiters.py` - Comprehensive traffic class testing framework (661 lines)
 - `README.md` - This documentation
 - `traffic_report_*.csv` - Performance data by traffic mix (4 files)
 - `performance_analysis_*.png` - Visualization charts (4 files)
@@ -20,12 +20,12 @@ python test_arbiters.py
 **Output**: 
 - 4 CSV files with performance data by traffic mix
 - 4 PNG files with comprehensive performance visualizations
-- Console summary of 96 test configurations
+- Console summary of 48 test configurations
 
 **Test Parameters**:
 - **Requestors**: 16 
 - **Simulation Cycles**: 2000 (optimized for realistic analysis)
-- **Policies**: FixedPriority, RoundRobin, Random, WeightedRoundRobin (3 modes each)
+- **Policies**: FixedPriority, RoundRobin, WeightedRoundRobin (median mode)
 - **Patterns**: random, burst, uniform, sequential
 - **Traffic Mixes**: mixed, real_time_only, isochronous_only, best_effort_only
 
@@ -112,72 +112,76 @@ The framework simulates three traffic classes with different QoS requirements:
 
 ## 📊 Performance Analysis Results
 
-Based on simulation of 96 test configurations (16 requestors, 2000 cycles):
+Based on simulation of 48 test configurations (16 requestors, 2000 cycles):
 
 ### 🏆 Key Findings
 
 #### FixedPriority: The Clear Winner for QoS Systems
-- **QoS Compliance**: 90-100% for real-time traffic
-- **Average Latency**: 1.0-81.9 cycles (excellent)
-- **Peak Latency**: 1-1406 cycles
+- **QoS Compliance**: 90-100% across all traffic types and patterns
+- **Average Latency**: 1.0-68.0 cycles (excellent)
+- **Peak Latency**: 1-1314 cycles  
+- **Service Rate**: 12.5-100% (pattern dependent)
 - **Pattern Sensitivity**: Excellent performance across all patterns
 - **Verdict**: ✅ **Recommended for time-critical applications**
 
-#### RoundRobin/Random: Fair but QoS-Inadequate  
-- **QoS Compliance**: 0.5-1.6% for real-time traffic (catastrophic failure)
-- **Average Latency**: 750-880 cycles (very poor)
-- **Peak Latency**: 1580-1760 cycles (unacceptable)
-- **Pattern Sensitivity**: Consistent poor performance across patterns
+#### RoundRobin: Fair but QoS-Inadequate  
+- **QoS Compliance**: 0.5-31.1% (catastrophic for real-time, poor for mixed)
+- **Average Latency**: 790-878 cycles (very poor)
+- **Peak Latency**: 1582-1756 cycles (unacceptable)
+- **Service Rate**: 12.5-100% (same as FixedPriority)
+- **Pattern Sensitivity**: Consistently poor QoS across patterns
 - **Verdict**: ❌ **Unsuitable for real-time systems**
 
-#### WeightedRoundRobin: Slightly Better Fair Scheduler
-- **QoS Compliance**: 0.5-1.6% for real-time traffic (still inadequate)  
-- **Average Latency**: 740-860 cycles (marginally better than RoundRobin)
-- **Peak Latency**: 1800-1950 cycles
-- **Mode Differences**: Minimal performance variation between random/mean/median modes
-- **Verdict**: ⚠️ **Improvement over RoundRobin but still QoS-inadequate**
+#### WeightedRoundRobin: Marginally Better Fair Scheduler
+- **QoS Compliance**: 0.5-31.6% (still inadequate for real-time)  
+- **Average Latency**: 752-857 cycles (slightly better than RoundRobin)
+- **Peak Latency**: 1814-1910 cycles (worse than RoundRobin)
+- **Service Rate**: 12.5-100% (comparable to other policies)
+- **Mode Testing**: Currently testing median weight selection
+- **Verdict**: ⚠️ **Minor improvement over RoundRobin but still QoS-inadequate**
 
 ### 📈 Pattern Impact Analysis
 
 #### Sequential Pattern: Best Case for All Arbiters
-- **All Policies**: 100% QoS compliance, 1.0 cycle latency
-- **Reason**: Perfect synchronization, no contention
+- **All Policies**: 100% QoS compliance, 1.0 cycle latency, 100% service rate
+- **Reason**: Perfect synchronization, no contention, one requestor active per cycle
 - **Real-world Relevance**: Limited (idealized scenario)
 
 #### Random Pattern: Most Realistic & Challenging  
-- **FixedPriority**: 90-92% QoS compliance (excellent)
-- **Others**: <1% QoS compliance (failure)
+- **FixedPriority**: 90-93% QoS compliance (excellent)
+- **Others**: 0.5-31% QoS compliance (failure)
+- **Service Rates**: ~21% (realistic load factor)
 - **Importance**: Best predictor of real-world performance
 
 #### Burst/Uniform Patterns: Intermediate Challenge
 - **FixedPriority**: 100% QoS compliance (perfect)
-- **Others**: 28-32% mixed traffic QoS (poor but better than random)
+- **Others**: 30-31% mixed traffic QoS (poor but better than random)
+- **Service Rates**: 12.5-18.7% (high contention scenarios)
 
 ### 🎯 Traffic Mix Specific Results
 
 #### Mixed Traffic (Most Realistic)
 | Policy | QoS Rate | Avg Latency | Peak Latency | Service Rate |
 |--------|----------|-------------|--------------|--------------|
-| FixedPriority | 92-100% | 1.0-81.9 | 1-1263 | 100% |
-| RoundRobin | 30-32% | 797-879 | 1588-1756 | 100% |
-| Random | 30-32% | 792-877 | 1610-1784 | 100% |
-| WeightedRR | 29-32% | 747-855 | 1809-1935 | 100% |
+| FixedPriority | 93-100% | 1.0-68.0 | 1-1314 | 12.5-100% |
+| RoundRobin | 30-100% | 1.0-878 | 1-1756 | 12.5-100% |
+| WeightedRR | 30-100% | 1.0-857 | 1-1884 | 12.5-100% |
 
 #### Real-Time Only Traffic  
-| Policy | QoS Rate | Avg Latency | Peak Latency |
-|--------|----------|-------------|--------------|
-| FixedPriority | 90-100% | 1.0-68.9 | 1-1338 |
-| RoundRobin | 0.5-0.7% | 795-879 | 1587-1756 |
-| Random | 0.5-0.9% | 782-877 | 1617-1781 |
-| WeightedRR | 0.5-0.9% | 751-852 | 1821-1894 |
+| Policy | QoS Rate | Avg Latency | Peak Latency | Service Rate |
+|--------|----------|-------------|--------------|--------------|
+| FixedPriority | 90-100% | 1.0-58.1 | 1-1305 | 12.5-100% |
+| RoundRobin | 0.5-100% | 1.0-878 | 1-1756 | 12.5-100% |
+| WeightedRR | 0.5-100% | 1.0-855 | 1-1910 | 12.5-100% |
 
 ### 🔍 Critical Insights
 
-1. **QoS Compliance Gap**: FixedPriority achieves >90% real-time QoS while fair schedulers achieve <1%
-2. **Latency Performance**: FixedPriority provides 10-20x lower average latency
+1. **QoS Compliance Gap**: FixedPriority achieves 90-100% real-time QoS while fair schedulers achieve 0.5-31%
+2. **Latency Performance**: FixedPriority provides 10-15x lower average latency in challenging scenarios
 3. **Pattern Robustness**: FixedPriority maintains excellent performance across all traffic patterns  
-4. **Fairness Trade-off**: Fair resource allocation comes at the cost of QoS guarantees
+4. **Service Rate Equality**: All policies achieve identical service rates, differences are in QoS and latency
 5. **WeightedRoundRobin Limitation**: Even with weighting, fundamental fairness approach limits QoS performance
+6. **Sequential Pattern Advantage**: All arbiters perform perfectly with no contention
 
 ### ⚡ Performance Recommendations
 
