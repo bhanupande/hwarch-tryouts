@@ -490,45 +490,146 @@ def plot_performance_metrics():
         ax4.legend(loc='lower right', fontsize=10, framealpha=0.95, 
                   bbox_to_anchor=(0.98, 0.02), borderaxespad=0)
         
-        # Add full policy names with patterns on points with better positioning
+        # Add full policy names with patterns using advanced non-overlapping positioning
+        import numpy as np
+        from matplotlib.patches import Rectangle
+        
+        # Collect all annotations info first
+        annotations_data = []
         for i, row in df.iterrows():
             policy_pattern = row['PolicyPattern']
             
             # Use full policy names with patterns
             if policy_pattern.startswith('FixedPriority'):
-                display_name = 'FixedPriority'
+                parts = policy_pattern.split('_')
+                if len(parts) > 1:
+                    mode = parts[1]
+                    display_name = f'FixedPriority\n({mode})'
+                else:
+                    display_name = 'FixedPriority'
             elif policy_pattern.startswith('RoundRobin'):
-                display_name = 'RoundRobin'
+                parts = policy_pattern.split('_')
+                if len(parts) > 1:
+                    mode = parts[1]
+                    display_name = f'RoundRobin\n({mode})'
+                else:
+                    display_name = 'RoundRobin'
             elif policy_pattern.startswith('WeightedRoundRobin'):
                 # Extract the mode (e.g., "quantum", "priority", "burst")
                 parts = policy_pattern.split('_')
-                if len(parts) > 1:
+                if len(parts) > 2:
                     mode = parts[2]
                     display_name = f'WeightedRoundRobin\n({mode})'
                 else:
                     display_name = 'WeightedRoundRobin'
             else:
-                display_name = policy_pattern  # Show full pattern for any other policies
+                display_name = policy_pattern
             
-            # Smart positioning to avoid overlap
-            x_pos = row['ServiceRate']
-            y_pos = row['QoSRate']
+            annotations_data.append({
+                'x': row['ServiceRate'],
+                'y': row['QoSRate'],
+                'name': display_name,
+                'index': i
+            })
+        
+        # Advanced positioning algorithm to prevent overlaps
+        def calculate_optimal_positions(annotations_data, ax):
+            positions = []
             
-            # Adjust annotation position based on QoS rate to minimize overlap
-            if y_pos > 80:  # High QoS - place labels below
-                xytext = (0, -15)
-            elif y_pos < 10:  # Low QoS - place labels above  
-                xytext = (0, 15)
-            else:  # Medium QoS - place labels to the right
-                xytext = (10, 5)
+            # Convert axis limits to work in display coordinates
+            xlim = ax.get_xlim()
+            ylim = ax.get_ylim()
             
-            ax4.annotate(display_name, (x_pos, y_pos),
-                        xytext=xytext, textcoords='offset points',
-                        fontsize=9, fontweight='bold', alpha=0.9,
-                        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.9, 
-                                 edgecolor='gray', linewidth=0.8),
-                        arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.1', 
-                                       color='gray', alpha=0.7, linewidth=1.0))
+            for i, data in enumerate(annotations_data):
+                x_data, y_data = data['x'], data['y']
+                best_pos = None
+                best_distance = 0
+                
+                # Extended radius search for better spacing
+                radius_steps = [25, 35, 45, 55, 70]  # Increasing radii
+                angle_steps = 12  # Number of angles to try
+                
+                for radius in radius_steps:
+                    found_good_position = False
+                    
+                    for angle_i in range(angle_steps):
+                        angle = (2 * np.pi * angle_i) / angle_steps
+                        
+                        # Calculate offset in points
+                        offset_x = radius * np.cos(angle)
+                        offset_y = radius * np.sin(angle)
+                        
+                        # Check if this position conflicts with previous annotations
+                        conflict = False
+                        min_dist = float('inf')
+                        
+                        for prev_pos in positions:
+                            # Distance between annotation positions (in points)
+                            dist = np.sqrt((offset_x - prev_pos['offset_x'])**2 + 
+                                         (offset_y - prev_pos['offset_y'])**2)
+                            min_dist = min(min_dist, dist)
+                            
+                            # Also check distance between data points
+                            data_dist = np.sqrt((x_data - prev_pos['x_data'])**2 + 
+                                              (y_data - prev_pos['y_data'])**2)
+                            
+                            # If data points are close, annotations need more separation
+                            required_separation = 40 if data_dist < 10 else 30
+                            
+                            if dist < required_separation:
+                                conflict = True
+                                break
+                        
+                        if not conflict and min_dist > best_distance:
+                            best_distance = min_dist
+                            best_pos = {
+                                'offset_x': offset_x,
+                                'offset_y': offset_y,
+                                'x_data': x_data,
+                                'y_data': y_data,
+                                'name': data['name']
+                            }
+                            
+                            # If we found a good separation, use it
+                            if min_dist > 35:
+                                found_good_position = True
+                                break
+                    
+                    if found_good_position:
+                        break
+                
+                # Fallback if no good position found
+                if best_pos is None:
+                    # Use a spiral pattern for fallback
+                    spiral_angle = i * 0.8  # Spiral increment
+                    spiral_radius = 30 + (i * 8)  # Increasing radius
+                    best_pos = {
+                        'offset_x': spiral_radius * np.cos(spiral_angle),
+                        'offset_y': spiral_radius * np.sin(spiral_angle),
+                        'x_data': x_data,
+                        'y_data': y_data,
+                        'name': data['name']
+                    }
+                
+                positions.append(best_pos)
+            
+            return positions
+        
+        # Calculate optimal positions
+        optimal_positions = calculate_optimal_positions(annotations_data, ax4)
+        
+        # Apply annotations with calculated positions
+        for pos in optimal_positions:
+            ax4.annotate(pos['name'], 
+                        (pos['x_data'], pos['y_data']),
+                        xytext=(pos['offset_x'], pos['offset_y']), 
+                        textcoords='offset points',
+                        fontsize=7, fontweight='bold', alpha=0.95,
+                        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.98, 
+                                 edgecolor='gray', linewidth=0.6),
+                        arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.15', 
+                                       color='gray', alpha=0.9, linewidth=0.8),
+                        ha='center', va='center')
         
         # Save combined plot
         plot_filename = f"performance_analysis_{traffic_mix}.png"
