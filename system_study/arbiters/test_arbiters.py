@@ -485,26 +485,50 @@ def plot_performance_metrics():
         ax4.set_ylabel('QoS Rate (%)', fontsize=12, labelpad=10)
         ax4.tick_params(axis='both', labelsize=10)
         ax4.grid(True, alpha=0.3)
-        ax4.legend(loc='upper left', fontsize=10, framealpha=0.9)
         
-        # Add policy labels on points
+        # Position legend to avoid overlap with data points
+        ax4.legend(loc='lower right', fontsize=10, framealpha=0.95, 
+                  bbox_to_anchor=(0.98, 0.02), borderaxespad=0)
+        
+        # Add full policy names with patterns on points with better positioning
         for i, row in df.iterrows():
-            policy_name = row['PolicyPattern'].split('_')[0]
+            policy_pattern = row['PolicyPattern']
             
-            # Clear abbreviations
-            if policy_name == 'FixedPriority':
-                label = 'FP'
-            elif policy_name == 'RoundRobin':
-                label = 'RR'
-            elif policy_name == 'WeightedRoundRobin':
-                label = 'WRR'
+            # Use full policy names with patterns
+            if policy_pattern.startswith('FixedPriority'):
+                display_name = 'FixedPriority'
+            elif policy_pattern.startswith('RoundRobin'):
+                display_name = 'RoundRobin'
+            elif policy_pattern.startswith('WeightedRoundRobin'):
+                # Extract the mode (e.g., "quantum", "priority", "burst")
+                parts = policy_pattern.split('_')
+                if len(parts) > 1:
+                    mode = parts[2]
+                    display_name = f'WeightedRoundRobin\n({mode})'
+                else:
+                    display_name = 'WeightedRoundRobin'
             else:
-                label = policy_name[:3]
+                display_name = policy_pattern  # Show full pattern for any other policies
             
-            ax4.annotate(label, (row['ServiceRate'], row['QoSRate']),
-                        xytext=(3, 3), textcoords='offset points',
-                        fontsize=8, fontweight='bold', alpha=0.8,
-                        bbox=dict(boxstyle='round,pad=0.1', facecolor='white', alpha=0.7))
+            # Smart positioning to avoid overlap
+            x_pos = row['ServiceRate']
+            y_pos = row['QoSRate']
+            
+            # Adjust annotation position based on QoS rate to minimize overlap
+            if y_pos > 80:  # High QoS - place labels below
+                xytext = (0, -15)
+            elif y_pos < 10:  # Low QoS - place labels above  
+                xytext = (0, 15)
+            else:  # Medium QoS - place labels to the right
+                xytext = (10, 5)
+            
+            ax4.annotate(display_name, (x_pos, y_pos),
+                        xytext=xytext, textcoords='offset points',
+                        fontsize=9, fontweight='bold', alpha=0.9,
+                        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.9, 
+                                 edgecolor='gray', linewidth=0.8),
+                        arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.1', 
+                                       color='gray', alpha=0.7, linewidth=1.0))
         
         # Save combined plot
         plot_filename = f"performance_analysis_{traffic_mix}.png"
