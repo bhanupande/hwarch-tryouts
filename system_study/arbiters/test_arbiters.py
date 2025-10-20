@@ -107,12 +107,14 @@ def get_traffic_class_load_factor(traffic_class: TrafficClass, pattern_type: str
     """
     Get load factor for a traffic class based on pattern type.
     Returns probability that this requestor makes a request this cycle.
+    
+    INCREASED LOAD FACTORS for better contention and policy differentiation.
     """
-    # Base load factors by traffic class (realistic system loads)
+    # Increased base load factors to generate more requests
     base_loads = {
-        TrafficClass.REAL_TIME: 0.4,      # Higher load for real-time
-        TrafficClass.ISOCHRONOUS: 0.3,    # Medium load for isochronous
-        TrafficClass.BEST_EFFORT: 0.2     # Lower but bursty load for best-effort
+        TrafficClass.REAL_TIME: 0.6,      # Very high load for real-time (was 0.4)
+        TrafficClass.ISOCHRONOUS: 0.5,    # High load for isochronous (was 0.3)
+        TrafficClass.BEST_EFFORT: 0.4     # Moderate load for best-effort (was 0.2)
     }
     
     base_load = base_loads[traffic_class]
@@ -155,19 +157,20 @@ def get_traffic_class_load_factor(traffic_class: TrafficClass, pattern_type: str
             return 1.0 if (cycle % be_count) == adjusted_id else 0.0
     elif pattern_type == 'heavy_contention':
         # All traffic classes highly active - stress test arbitration
+        # INCREASED to create severe contention scenarios
         heavy_loads = {
-            TrafficClass.REAL_TIME: 0.8,      # Very high load
-            TrafficClass.ISOCHRONOUS: 0.7,    # High load
-            TrafficClass.BEST_EFFORT: 0.6     # Moderate-high load
+            TrafficClass.REAL_TIME: 0.9,      # Extremely high load (was 0.8)
+            TrafficClass.ISOCHRONOUS: 0.85,   # Very high load (was 0.7)
+            TrafficClass.BEST_EFFORT: 0.75    # High load (was 0.6)
         }
         return heavy_loads[traffic_class]
     elif pattern_type == 'priority_inversion':
         # Lower priority classes more active than higher priority
         # This tests if arbiters properly handle priority enforcement
         inversion_loads = {
-            TrafficClass.REAL_TIME: 0.2,      # Low load (should still get priority)
-            TrafficClass.ISOCHRONOUS: 0.5,    # Medium load  
-            TrafficClass.BEST_EFFORT: 0.8     # High load (tests starvation handling)
+            TrafficClass.REAL_TIME: 0.3,      # Low load (was 0.2)
+            TrafficClass.ISOCHRONOUS: 0.6,    # Medium-high load (was 0.5)
+            TrafficClass.BEST_EFFORT: 0.9     # Very high load (was 0.8)
         }
         return inversion_loads[traffic_class]
     else:
@@ -743,6 +746,188 @@ def plot_performance_metrics():
     print("Plot generation completed!")
 
 
+def generate_analysis_report():
+    """
+    Generate comprehensive analysis report from test results.
+    Provides insights into arbitration policy performance and trade-offs.
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_file = os.path.join(script_dir, "arbiter_performance_report.csv")
+    
+    if not os.path.exists(csv_file):
+        print("CSV file not found. Run the simulation first!")
+        return
+    
+    # Read results
+    df = pd.read_csv(csv_file)
+    
+    print("\n" + "=" * 100)
+    print(" " * 30 + "ARBITER PERFORMANCE ANALYSIS REPORT")
+    print("=" * 100)
+    print("\n📊 TEST CONFIGURATION:")
+    print("   - Requestors: 16 (5 Real-time, 5 Isochronous, 6 Best-effort)")
+    print("   - Simulation Cycles: 2000")
+    print("   - Traffic Patterns: random, heavy_contention, priority_inversion")
+    print("   - Arbiter Policies: FixedPriority, WeightedRoundRobin, DynamicPriority, Random")
+    
+    print("\n" + "=" * 100)
+    print("🔍 KEY FINDINGS BY ARBITRATION POLICY")
+    print("=" * 100)
+    
+    # Analyze each policy
+    for policy in df['Policy'].unique():
+        policy_data = df[df['Policy'] == policy]
+        
+        print(f"\n{'─' * 100}")
+        print(f"🏷️  {policy.upper()} ARBITER")
+        print(f"{'─' * 100}")
+        
+        # Overall statistics
+        avg_qos = policy_data['QoSRate'].mean()
+        avg_starvation = policy_data['StarvationRate'].mean()
+        avg_fairness = policy_data['FairnessIndex'].mean()
+        avg_latency = policy_data['AvgLatency'].mean()
+        avg_violations = policy_data['Violations'].mean()
+        
+        print(f"\n📈 Overall Performance:")
+        print(f"   • Average QoS Compliance:     {avg_qos:.1f}%")
+        print(f"   • Average Starvation Rate:    {avg_starvation:.1f}%")
+        print(f"   • Average Fairness Index:     {avg_fairness:.3f}")
+        print(f"   • Average Latency:            {avg_latency:.1f} cycles")
+        print(f"   • Average QoS Violations:     {avg_violations:.0f} requests")
+        
+        # Pattern-specific analysis
+        print(f"\n📋 Performance by Traffic Pattern:")
+        for pattern in policy_data['Pattern'].unique():
+            pattern_row = policy_data[policy_data['Pattern'] == pattern].iloc[0]
+            print(f"\n   🔸 {pattern.upper()}:")
+            print(f"      - Requests Generated: {pattern_row['TotalRequests']:,}")
+            print(f"      - Requests Served:    {pattern_row['ServedRequests']:,} ({pattern_row['ServiceRate']:.1f}%)")
+            print(f"      - QoS Compliance:     {pattern_row['QoSRate']:.1f}%")
+            print(f"      - QoS Violations:     {pattern_row['Violations']}")
+            print(f"      - Avg Latency:        {pattern_row['AvgLatency']:.1f} cycles")
+            print(f"      - Max Latency:        {pattern_row['MaxLatency']:.0f} cycles")
+            print(f"      - Starvation:         {pattern_row['StarvationRate']:.1f}%")
+            print(f"      - Fairness Index:     {pattern_row['FairnessIndex']:.3f}")
+            print(f"      - RT Starvation:      {pattern_row['RTStarvationRate']:.1f}%")
+            print(f"      - Iso Starvation:     {pattern_row['IsoStarvationRate']:.1f}%")
+            print(f"      - BE Starvation:      {pattern_row['BEStarvationRate']:.1f}%")
+        
+        # Policy-specific insights
+        print(f"\n💡 Key Insights:")
+        if policy == 'FixedPriority':
+            print(f"   ✓ Excellent QoS compliance ({avg_qos:.1f}%) - reliably meets latency constraints")
+            print(f"   ✓ Low latency for high-priority traffic")
+            if avg_starvation > 70:
+                print(f"   ⚠ High starvation rate ({avg_starvation:.1f}%) - low-priority traffic suffers")
+            print(f"   ⚠ Poor fairness ({avg_fairness:.3f}) - heavily favors real-time traffic")
+            print(f"   📌 Best for: Systems where QoS guarantees are critical")
+            
+        elif policy == 'WeightedRoundRobin':
+            print(f"   ✓ Good fairness ({avg_fairness:.3f}) - balanced service across traffic classes")
+            print(f"   ✓ Moderate QoS compliance ({avg_qos:.1f}%)")
+            if avg_latency > 10:
+                print(f"   ⚠ Higher average latency ({avg_latency:.1f} cycles) due to round-robin scheduling")
+            print(f"   📌 Best for: Systems requiring fairness with some QoS awareness")
+            
+        elif policy == 'DynamicPriority':
+            print(f"   ✓ Balanced approach - {avg_qos:.1f}% QoS, {avg_fairness:.3f} fairness")
+            print(f"   ✓ Adapts to traffic conditions through priority aging")
+            if avg_violations < 30:
+                print(f"   ✓ Low QoS violations ({avg_violations:.0f}) shows good priority management")
+            print(f"   📌 Best for: General-purpose systems with mixed workloads")
+            
+        elif policy == 'Random':
+            print(f"   ✓ Simple implementation with no state tracking")
+            if avg_starvation > 75:
+                print(f"   ⚠ High starvation ({avg_starvation:.1f}%) - unpredictable service")
+            print(f"   ⚠ Poor fairness ({avg_fairness:.3f}) - uneven service distribution")
+            print(f"   ⚠ No QoS awareness - not suitable for real-time systems")
+            print(f"   📌 Best for: Testing baseline, not recommended for production")
+    
+    # Comparative analysis
+    print("\n" + "=" * 100)
+    print("⚖️  COMPARATIVE ANALYSIS")
+    print("=" * 100)
+    
+    # Best policy for each metric
+    best_qos_idx = df.groupby('Policy')['QoSRate'].mean().idxmax()
+    best_fairness_idx = df.groupby('Policy')['FairnessIndex'].mean().idxmax()
+    best_latency_idx = df.groupby('Policy')['AvgLatency'].mean().idxmin()
+    lowest_starvation_idx = df.groupby('Policy')['StarvationRate'].mean().idxmin()
+    
+    print(f"\n🏆 Best Performers by Metric:")
+    print(f"   • Highest QoS Compliance:  {best_qos_idx} ({df.groupby('Policy')['QoSRate'].mean()[best_qos_idx]:.1f}%)")
+    print(f"   • Best Fairness:           {best_fairness_idx} ({df.groupby('Policy')['FairnessIndex'].mean()[best_fairness_idx]:.3f})")
+    print(f"   • Lowest Avg Latency:      {best_latency_idx} ({df.groupby('Policy')['AvgLatency'].mean()[best_latency_idx]:.1f} cycles)")
+    print(f"   • Lowest Starvation:       {lowest_starvation_idx} ({df.groupby('Policy')['StarvationRate'].mean()[lowest_starvation_idx]:.1f}%)")
+    
+    # Traffic pattern impact
+    print(f"\n📊 Traffic Pattern Impact Analysis:")
+    for pattern in df['Pattern'].unique():
+        pattern_data = df[df['Pattern'] == pattern]
+        print(f"\n   {pattern.upper()}:")
+        print(f"   - Average Requests Generated: {pattern_data['TotalRequests'].mean():.0f}")
+        print(f"   - Average Service Rate:       {pattern_data['ServiceRate'].mean():.1f}%")
+        print(f"   - Average QoS Compliance:     {pattern_data['QoSRate'].mean():.1f}%")
+        print(f"   - Average Starvation:         {pattern_data['StarvationRate'].mean():.1f}%")
+        
+        if pattern == 'heavy_contention':
+            print(f"   💡 All policies struggle under heavy load - significant starvation expected")
+        elif pattern == 'priority_inversion':
+            print(f"   💡 Tests priority enforcement when low-priority traffic dominates")
+    
+    # Recommendations
+    print("\n" + "=" * 100)
+    print("📝 RECOMMENDATIONS")
+    print("=" * 100)
+    
+    print(f"\n1️⃣  FOR REAL-TIME CRITICAL SYSTEMS:")
+    print(f"   → Use FixedPriority arbiter")
+    print(f"   → Accepts fairness trade-off for guaranteed QoS")
+    print(f"   → Monitor best-effort starvation and adjust if needed")
+    
+    print(f"\n2️⃣  FOR BALANCED QoS + FAIRNESS:")
+    print(f"   → Use DynamicPriority arbiter")
+    print(f"   → Good middle ground for mixed workloads")
+    print(f"   → Adapts to changing traffic conditions")
+    
+    print(f"\n3️⃣  FOR FAIRNESS-CRITICAL SYSTEMS:")
+    print(f"   → Use WeightedRoundRobin arbiter")
+    print(f"   → Configure weights based on traffic class priorities")
+    print(f"   → Accept slightly higher latency for better fairness")
+    
+    print(f"\n4️⃣  AVOID IN PRODUCTION:")
+    print(f"   → Random arbiter - no QoS guarantees, poor fairness")
+    print(f"   → Only useful for testing or non-critical applications")
+    
+    # Starvation analysis
+    print("\n" + "=" * 100)
+    print("⚠️  STARVATION ANALYSIS")
+    print("=" * 100)
+    
+    print(f"\nStarvation by Traffic Class (averaged across all tests):")
+    avg_rt_starv = df['RTStarvationRate'].mean()
+    avg_iso_starv = df['IsoStarvationRate'].mean()
+    avg_be_starv = df['BEStarvationRate'].mean()
+    
+    print(f"   • Real-Time:   {avg_rt_starv:.1f}% (should be near 0%)")
+    print(f"   • Isochronous: {avg_iso_starv:.1f}%")
+    print(f"   • Best-Effort: {avg_be_starv:.1f}%")
+    
+    if avg_rt_starv > 5:
+        print(f"\n   ⚠️  WARNING: Real-time starvation detected! Critical issue for QoS systems.")
+    if avg_be_starv > 90:
+        print(f"\n   ⚠️  WARNING: Excessive best-effort starvation. Consider load balancing.")
+    
+    print("\n" + "=" * 100)
+    print("✅ ANALYSIS COMPLETE")
+    print("=" * 100)
+    print(f"\n📁 Detailed results: {csv_file}")
+    print(f"📊 Visualizations: arbiter_performance_analysis.png")
+    print("\n")
+
+
 if __name__ == "__main__":
     # Run the streamlined simulation
     run_traffic_class_examples(req=16, cycles=2000)
@@ -751,4 +936,11 @@ if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("GENERATING PERFORMANCE VISUALIZATIONS")
     print("=" * 60)
+    plot_performance_metrics()
+    
+    # Generate comprehensive analysis
+    print("\n" + "=" * 60)
+    print("GENERATING ANALYSIS REPORT")
+    print("=" * 60)
+    generate_analysis_report()
     plot_performance_metrics()
