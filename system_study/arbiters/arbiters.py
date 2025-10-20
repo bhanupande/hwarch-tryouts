@@ -364,7 +364,7 @@ class Arbiter:
         # FIXED PRIORITY ARBITRATION POLICY
         # =================================================================
         if self.policy == 'FixedPriority':
-            self.fixed_priority_arb(requests)
+            self.fixed_priority_arb(requests, base_priorities)
 
         # =================================================================
         # ROUND ROBIN ARBITRATION POLICY  
@@ -387,31 +387,52 @@ class Arbiter:
     def dynamic_priority_arb(self, requests, base_priorities):
         # Dynamic priority adjustment based on requestor behavior
         # Encourages responsiveness by adapting to changing workloads
-        # Higher recent activity increases priority for future access
+        # Higher numerical values = higher actual priority
+        # Escalation increases effective priority for waiting requestors
 
-        # Calculate priority scores for all active requestors
-        priority_scores = sorted(base_priorities[i] + self.priority_escalation[i] for i in range(len(requests)) if requests[i])
-        if not priority_scores:
+        # Find the requestor with the highest effective priority
+        # effective_priority = base_priority + escalation_bonus
+        best_effective_priority = -1
+        best_requestor = -1
+        
+        for i in range(len(requests)):
+            if requests[i]:  # Only consider active requestors
+                # Calculate effective priority (base + escalation bonus)
+                effective_priority = base_priorities[i] + self.priority_escalation[i]
+                # Higher score = higher priority, so find maximum
+                if effective_priority > best_effective_priority:
+                    best_effective_priority = effective_priority
+                    best_requestor = i
+        
+        if best_requestor == -1:
             return  # No active requests
-        start_index = priority_scores[-1]
-        for i in range(len(requests)):
-            curr_index = (start_index + i) % len(requests)
-            if requests[curr_index]:
-                self.gnt_id = curr_index
-                self.priority_escalation[curr_index] = 0
-                for j in range(len(requests)):
-                    if requests[j] and j != curr_index:
-                        self.priority_escalation[j] += 1
-                return
+            
+        # Grant to the highest effective priority requestor
+        self.gnt_id = best_requestor
+        # Reset escalation for the granted requestor
+        self.priority_escalation[best_requestor] = 0
+        # Increase escalation for all other active requestors (aging)
+        for j in range(len(requests)):
+            if requests[j] and j != best_requestor:
+                self.priority_escalation[j] += 1
 
-    def fixed_priority_arb(self, requests):
-        # Linear scan from index 0 (highest priority) to find first active requestor
-        # Lower indices have absolute priority over higher indices
+    def fixed_priority_arb(self, requests, base_priorities):
+        # Fixed priority based on base_priority values
+        # Higher numerical values = higher actual priority
         # Provides deterministic, predictable arbitration for critical systems
+        
+        best_priority = -1
+        best_requestor = -1
+        
+        # Find the requestor with the highest base priority
         for i in range(len(requests)):
-            if requests[i]:
-                self.gnt_id = i
-                return
+            if requests[i]:  # Only consider active requestors
+                if base_priorities[i] > best_priority:
+                    best_priority = base_priorities[i]
+                    best_requestor = i
+        
+        if best_requestor != -1:
+            self.gnt_id = best_requestor
 
     def round_robin_arb(self, requests):
         # Fair rotation starting from position after last granted requestor
