@@ -393,7 +393,7 @@ class Arbiter:
         priority_scores = sorted(base_priorities[i] + self.priority_escalation[i] for i in range(len(requests)) if requests[i])
         if not priority_scores:
             return  # No active requests
-        start_index = priority_scores[0]
+        start_index = priority_scores[-1]
         for i in range(len(requests)):
             curr_index = (start_index + i) % len(requests)
             if requests[curr_index]:
