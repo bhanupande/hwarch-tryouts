@@ -187,7 +187,9 @@ class Arbiter:
         # This tracks the last granted requestor ID to ensure fair rotation
         self.gnt_id = 0  # Start with requestor 0 for consistent initial state
 
-    def arbitrate(self, requests):
+        self.priority_escalation = [0 for _ in range(num_requestors)]  # For DynamicPriority policy
+
+    def arbitrate(self, requests, base_priorities):
         """
         MAIN ARBITRATION DECISION ENGINE
         
@@ -250,12 +252,17 @@ class Arbiter:
         # Handle null or empty request vectors
         if not requests:
             return None
-            
+        if not base_priorities:
+            print("Considering fixed priorities as base priorities are not provided")
+            return [0 for i in range(self.num_requestors)]
+
         # Validate request vector size matches arbiter configuration
         # This ensures consistent interface and prevents indexing errors
         if len(requests) != self.num_requestors:
             raise ValueError(f"Expected {self.num_requestors} requests, but got {len(requests)}")
-            
+        if len(base_priorities) > 0 and len(base_priorities) != self.num_requestors:
+            raise ValueError(f"Expected {self.num_requestors} base priorities, but got {len(base_priorities)}")
+
         # Check if any requests are active (at least one True value)
         # Return None if no requestors are competing for access
         if not any(requests):
@@ -267,12 +274,12 @@ class Arbiter:
         
         # Delegate to policy-specific arbitration logic
         # This updates self.gnt_id with the selected requestor
-        self.arb_policy(requests)
+        self.arb_policy(requests, base_priorities)
         
         # Return the selected requestor ID for resource allocation
         return self.gnt_id
 
-    def arb_policy(self, requests):
+    def arb_policy(self, requests, base_priorities):
         """
         POLICY-SPECIFIC ARBITRATION LOGIC ENGINE
         
@@ -357,116 +364,102 @@ class Arbiter:
         # FIXED PRIORITY ARBITRATION POLICY
         # =================================================================
         if self.policy == 'FixedPriority':
-            # Linear scan from index 0 (highest priority) to find first active requestor
-            # Lower indices have absolute priority over higher indices
-            # Provides deterministic, predictable arbitration for critical systems
-            for i in range(len(requests)):
-                if requests[i]:
-                    self.gnt_id = i
-                    return
-                    
+            self.fixed_priority_arb(requests)
+
         # =================================================================
         # ROUND ROBIN ARBITRATION POLICY  
         # =================================================================
         elif self.policy == 'RoundRobin':
-            # Fair rotation starting from position after last granted requestor
-            # This ensures equal opportunity for all requestors over time
-            # Mathematical approach: use modular arithmetic for wraparound
-            
-            # Calculate starting position for fair rotation
-            start_index = (self.gnt_id + 1) % len(requests)
-            
-            # Scan all positions starting from rotation point
-            # This guarantees fairness by ensuring no requestor is permanently starved
-            for i in range(len(requests)):
-                curr_index = (start_index + i) % len(requests)
-                if requests[curr_index]:
-                    self.gnt_id = curr_index
-                    return
-                    
+            self.round_robin_arb(requests)                    
+
         # =================================================================
         # WEIGHTED ROUND ROBIN ARBITRATION POLICY
         # =================================================================
         elif self.policy == 'WeightedRoundRobin':
-            # Weighted fair rotation considering requestor priorities
-            # Higher weights receive proportionally more access opportunities
-            # Combines fairness of round-robin with priority-based weighting
-            
-            # Calculate total weight of all active requestors
-            # Only active requestors participate in weighted selection
-            total_active_weight = sum(self.weights[i] for i in range(len(requests)) if requests[i])
-            if total_active_weight == 0:
-                return  # No active requests
-            
-            # Use weighted random selection based on normalized weights
-            # This provides proportional access based on weight values
-            if (self.mode == 'random'):
-                threshold_value = random.uniform(0, total_active_weight)
-            elif (self.mode == 'mean'):
-                threshold_value = total_active_weight / 2
-            elif (self.mode == 'median'):
-                threshold_value = sorted(self.weights)[len(self.weights) // 2]
-            else:
-                threshold_value = total_active_weight / 2  # Default to median if unknown mode
-            cumulative_weight = 0.0
-            
-            # Start from position after last granted for fairness
-            start_index = (self.gnt_id + 1) % len(requests)
-            
-            # Scan all positions with weighted probability
-            for i in range(len(requests)):
-                curr_index = (start_index + i) % len(requests)
-                if requests[curr_index]:
-                    cumulative_weight += self.weights[curr_index]
-                    if threshold_value <= cumulative_weight:
-                        self.gnt_id = curr_index
-                        return
-        
+            self.weighted_round_robin_arb(requests)
+
         # =================================================================
-        # RANDOM ARBITRATION POLICY
+        # DYNAMIC PRIORITY ARBITRATION POLICY
         # =================================================================
-        elif self.policy == 'Random':
-            # Stochastic selection among active requestors for load balancing
-            # Provides unpredictability useful for security and performance distribution
-            
-            # Build list of currently active requestor indices
-            # This enables uniform random selection among only competing requestors
-            active_requestors = [i for i, req in enumerate(requests) if req]
-            
-            # Select randomly from active requestors if any exist
-            if active_requestors:
-                self.gnt_id = random.choice(active_requestors)
+        elif self.policy == 'DynamicPriority':
+            self.dynamic_priority_arb(requests, base_priorities)
+
+    def dynamic_priority_arb(self, requests, base_priorities):
+        # Dynamic priority adjustment based on requestor behavior
+        # Encourages responsiveness by adapting to changing workloads
+        # Higher recent activity increases priority for future access
+
+        # Calculate priority scores for all active requestors
+        priority_scores = sorted(base_priorities[i] + self.priority_escalation[i] for i in range(len(requests)) if requests[i])
+        if not priority_scores:
+            return  # No active requests
+        start_index = priority_scores[0]
+        for i in range(len(requests)):
+            curr_index = (start_index + i) % len(requests)
+            if requests[curr_index]:
+                self.gnt_id = curr_index
+                self.priority_escalation[curr_index] = 0
+                for j in range(len(requests)):
+                    if requests[j] and j != curr_index:
+                        self.priority_escalation[j] += 1
                 return
-        
-        # =================================================================
-        # WEIGHTED RANDOM ARBITRATION POLICY
-        # =================================================================
-        elif self.policy == 'WeightedRandom':
-            # Weighted stochastic selection among active requestors
-            # Higher weights increase probability of selection without rotation constraints
-            # Provides weighted load balancing with full randomness
+
+    def fixed_priority_arb(self, requests):
+        # Linear scan from index 0 (highest priority) to find first active requestor
+        # Lower indices have absolute priority over higher indices
+        # Provides deterministic, predictable arbitration for critical systems
+        for i in range(len(requests)):
+            if requests[i]:
+                self.gnt_id = i
+                return
+
+    def round_robin_arb(self, requests):
+        # Fair rotation starting from position after last granted requestor
+        # This ensures equal opportunity for all requestors over time
+        # Mathematical approach: use modular arithmetic for wraparound
             
-            # Calculate total weight of all active requestors
-            total_active_weight = sum(self.weights[i] for i in range(len(requests)) if requests[i])
-            if total_active_weight == 0:
-                return  # No active requests
+        # Calculate starting position for fair rotation
+        start_index = (self.gnt_id + 1) % len(requests)
             
-            # Use weighted random selection based on normalized weights
-            rand_value = random.uniform(0, total_active_weight)
-            cumulative_weight = 0.0
+        # Scan all positions starting from rotation point
+        # This guarantees fairness by ensuring no requestor is permanently starved
+        for i in range(len(requests)):
+            curr_index = (start_index + i) % len(requests)
+            if requests[curr_index]:
+                self.gnt_id = curr_index
+                return
+
+    def weighted_round_robin_arb(self, requests):
+        # Weighted fair rotation considering requestor priorities
+        # Higher weights receive proportionally more access opportunities
+        # Combines fairness of round-robin with priority-based weighting
             
-            # Scan all requestors with weighted probability (no rotation bias)
-            for i in range(len(requests)):
-                if requests[i]:
-                    cumulative_weight += self.weights[i]
-                    if rand_value <= cumulative_weight:
-                        self.gnt_id = i
-                        return
-        
-        # =================================================================
-        # FALLBACK HANDLING
-        # =================================================================
-        # If no active requests found or unknown policy, maintain current gnt_id
-        # This situation should not occur due to caller validation, but provides
-        # graceful degradation and maintains system stability
-        # Note: Unknown policies will silently maintain previous grant state
+        # Calculate total weight of all active requestors
+        # Only active requestors participate in weighted selection
+        total_active_weight = sum(self.weights[i] for i in range(len(requests)) if requests[i])
+        if total_active_weight == 0:
+            return  # No active requests
+            
+        # Use weighted random selection based on normalized weights
+        # This provides proportional access based on weight values
+        if (self.mode == 'random'):
+            threshold_value = random.uniform(0, total_active_weight)
+        elif (self.mode == 'mean'):
+            threshold_value = total_active_weight / 2
+        elif (self.mode == 'median'):
+            threshold_value = sorted(self.weights)[len(self.weights) // 2]
+        else:
+            threshold_value = total_active_weight / 2  # Default to median if unknown mode
+        cumulative_weight = 0.0
+            
+        # Start from position after last granted for fairness
+        start_index = (self.gnt_id + 1) % len(requests)
+            
+        # Scan all positions with weighted probability
+        for i in range(len(requests)):
+            curr_index = (start_index + i) % len(requests)
+            if requests[curr_index]:
+                cumulative_weight += self.weights[curr_index]
+                if threshold_value <= cumulative_weight:
+                    self.gnt_id = curr_index
+                    return

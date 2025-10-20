@@ -70,6 +70,7 @@ class Request:
     priority: int
     traffic_class: TrafficClass
     arrival_cycle: int
+    base_priority: int
     completion_cycle: Optional[int] = None
 
 
@@ -117,11 +118,33 @@ def generate_traffic(num_requestors: int, cycles: int, pattern_type: str, traffi
                         selected_class = tc
                         break
                 
+                # Calculate base priority based on traffic class and some variation
+                # Base priority should be stable for each request throughout its lifetime
+                # NOTE: Lower numerical values = Higher priority (like Unix nice values)
+                traffic_class_info = TRAFFIC_CLASSES[selected_class]
+                base_base_priority = traffic_class_info.priority
+                
+                # Add some variation within traffic class to make it more realistic
+                # Since lower values = higher priority, we subtract variation for higher priority classes
+                # Real-time: base priority 1, variation 0-2 (range 1-3, but inverted to -1 to 1)
+                # Isochronous: base priority 2, variation 0-3 (range 2-5, but inverted to -1 to 2) 
+                # Best-effort: base priority 3, variation 0-4 (range 3-7, but inverted to -1 to 3)
+                if selected_class == TrafficClass.REAL_TIME:
+                    # Higher priority traffic gets lower base priority values
+                    priority_variation = random.randint(-1, 1)  # Most critical, stay close to 1
+                elif selected_class == TrafficClass.ISOCHRONOUS:
+                    priority_variation = random.randint(-1, 2)  # Medium priority range
+                else:  # BEST_EFFORT
+                    priority_variation = random.randint(-1, 3)  # Lowest priority, higher numbers
+                
+                calculated_base_priority = base_base_priority + priority_variation
+                
                 request = Request(
                     id=request_id,
-                    priority=TRAFFIC_CLASSES[selected_class].priority,
+                    priority=traffic_class_info.priority,  # Keep original priority for QoS tracking
                     traffic_class=selected_class,
-                    arrival_cycle=cycle
+                    arrival_cycle=cycle,
+                    base_priority=calculated_base_priority
                 )
                 cycle_requests.append(request)
                 request_id += 1
@@ -150,6 +173,7 @@ def measure_performance(arbiter: Arbiter, request_patterns: List[List[Request]])
         if pending_requests:
             # Create request vector for arbiter from pending requests
             request_vector = [None] * arbiter.num_requestors
+            base_priority_vector = [0] * arbiter.num_requestors
             request_map = {}
             
             # Map pending requests to requestor positions (first come first serve per requestor)
@@ -157,10 +181,14 @@ def measure_performance(arbiter: Arbiter, request_patterns: List[List[Request]])
                 requestor_id = req.id % arbiter.num_requestors
                 if request_vector[requestor_id] is None:
                     request_vector[requestor_id] = req
+                    base_priority_vector[requestor_id] = req.base_priority
                     request_map[requestor_id] = req
             
+            # Convert request_vector to boolean vector for arbiter
+            boolean_request_vector = [req is not None for req in request_vector]
+            
             # Arbitrate among available requests
-            granted_index = arbiter.arbitrate(request_vector)
+            granted_index = arbiter.arbitrate(boolean_request_vector, base_priority_vector)
             if granted_index is not None and granted_index in request_map:
                 granted_request = request_map[granted_index]
                 # Memory access takes 1 cycle to complete
@@ -234,7 +262,7 @@ def run_traffic_class_examples(req=16, cycles=2000):
     print("=" * 60)
     
     # Define a few key test configurations - no hardcoded values!
-    policies = ['FixedPriority', 'RoundRobin', 'WeightedRoundRobin']#, 'Random', 'WeightedRandom']
+    policies = ['FixedPriority', 'WeightedRoundRobin', 'DynamicPriority']#, 'Random', 'WeightedRandom']
     patterns = ['random', 'burst', 'uniform', 'sequential']
     traffics = ['mixed', 'real_time_only', 'isochronous_only', 'best_effort_only']
     modes = ['median']#, 'mean', 'random']
