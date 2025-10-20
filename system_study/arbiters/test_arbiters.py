@@ -125,17 +125,17 @@ def generate_traffic(num_requestors: int, cycles: int, pattern_type: str, traffi
                 base_base_priority = traffic_class_info.priority
                 
                 # Add some variation within traffic class to make it more realistic
-                # Since lower values = higher priority, we subtract variation for higher priority classes
-                # Real-time: base priority 1, variation 0-2 (range 1-3, but inverted to -1 to 1)
-                # Isochronous: base priority 2, variation 0-3 (range 2-5, but inverted to -1 to 2) 
-                # Best-effort: base priority 3, variation 0-4 (range 3-7, but inverted to -1 to 3)
+                # Higher numbers = higher priority, with NON-OVERLAPPING ranges
+                # Real-time: base priority 1, variation 9-14 (final range: 10-15, highest)
+                # Isochronous: base priority 2, variation 3-7 (final range: 5-9, medium) 
+                # Best-effort: base priority 3, variation -2 to +1 (final range: 1-4, lowest)
                 if selected_class == TrafficClass.REAL_TIME:
-                    # Higher priority traffic gets lower base priority values
-                    priority_variation = random.randint(-1, 1)  # Most critical, stay close to 1
+                    # Highest priority traffic gets highest numbers: 10-15
+                    priority_variation = random.randint(8, 14)  # Most critical
                 elif selected_class == TrafficClass.ISOCHRONOUS:
-                    priority_variation = random.randint(-1, 2)  # Medium priority range
+                    priority_variation = random.randint(3, 7)   # Medium priority: 5-9
                 else:  # BEST_EFFORT
-                    priority_variation = random.randint(-1, 3)  # Lowest priority, higher numbers
+                    priority_variation = random.randint(0, 2)  # Lowest priority: 1-4
                 
                 calculated_base_priority = base_base_priority + priority_variation
                 
