@@ -928,6 +928,233 @@ def generate_analysis_report():
     print("\n")
 
 
+def save_analysis_to_markdown():
+    """
+    Save comprehensive analysis report to a markdown file.
+    Creates a well-formatted .md document with all insights and recommendations.
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_file = os.path.join(script_dir, "arbiter_performance_report.csv")
+    md_file = os.path.join(script_dir, "ARBITER_ANALYSIS_REPORT.md")
+    
+    if not os.path.exists(csv_file):
+        print("CSV file not found. Run the simulation first!")
+        return
+    
+    # Read results
+    df = pd.read_csv(csv_file)
+    
+    # Get current timestamp
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    with open(md_file, 'w') as f:
+        # Header
+        f.write("# Arbiter Performance Analysis Report\n\n")
+        f.write(f"**Generated:** {timestamp}\n\n")
+        f.write("---\n\n")
+        
+        # Test Configuration
+        f.write("## 📊 Test Configuration\n\n")
+        f.write("- **Requestors:** 16 (5 Real-time, 5 Isochronous, 6 Best-effort)\n")
+        f.write("- **Simulation Cycles:** 2000\n")
+        f.write("- **Traffic Patterns:** random, heavy_contention, priority_inversion\n")
+        f.write("- **Arbiter Policies:** FixedPriority, WeightedRoundRobin, DynamicPriority, Random\n\n")
+        f.write("### Traffic Class Assignment\n\n")
+        f.write("| Requestor Range | Traffic Class | Priority | Max Latency Constraint |\n")
+        f.write("|----------------|---------------|----------|------------------------|\n")
+        f.write("| 0-4            | Real-time     | Highest  | 10 cycles              |\n")
+        f.write("| 5-9            | Isochronous   | Medium   | 20 cycles              |\n")
+        f.write("| 10-15          | Best-effort   | Lowest   | None                   |\n\n")
+        
+        f.write("---\n\n")
+        
+        # Key Findings by Policy
+        f.write("## 🔍 Key Findings by Arbitration Policy\n\n")
+        
+        for policy in df['Policy'].unique():
+            policy_data = df[df['Policy'] == policy]
+            
+            f.write(f"### 🏷️ {policy} Arbiter\n\n")
+            
+            # Overall statistics
+            avg_qos = policy_data['QoSRate'].mean()
+            avg_starvation = policy_data['StarvationRate'].mean()
+            avg_fairness = policy_data['FairnessIndex'].mean()
+            avg_latency = policy_data['AvgLatency'].mean()
+            avg_violations = policy_data['Violations'].mean()
+            
+            f.write("#### 📈 Overall Performance\n\n")
+            f.write(f"- **Average QoS Compliance:** {avg_qos:.1f}%\n")
+            f.write(f"- **Average Starvation Rate:** {avg_starvation:.1f}%\n")
+            f.write(f"- **Average Fairness Index:** {avg_fairness:.3f}\n")
+            f.write(f"- **Average Latency:** {avg_latency:.1f} cycles\n")
+            f.write(f"- **Average QoS Violations:** {avg_violations:.0f} requests\n\n")
+            
+            # Pattern-specific analysis
+            f.write("#### 📋 Performance by Traffic Pattern\n\n")
+            for pattern in policy_data['Pattern'].unique():
+                pattern_row = policy_data[policy_data['Pattern'] == pattern].iloc[0]
+                f.write(f"**{pattern.upper()}**\n\n")
+                f.write(f"- Requests Generated: {pattern_row['TotalRequests']:,}\n")
+                f.write(f"- Requests Served: {pattern_row['ServedRequests']:,} ({pattern_row['ServiceRate']:.1f}%)\n")
+                f.write(f"- QoS Compliance: {pattern_row['QoSRate']:.1f}%\n")
+                f.write(f"- QoS Violations: {pattern_row['Violations']}\n")
+                f.write(f"- Average Latency: {pattern_row['AvgLatency']:.1f} cycles\n")
+                f.write(f"- Maximum Latency: {pattern_row['MaxLatency']:.0f} cycles\n")
+                f.write(f"- Overall Starvation: {pattern_row['StarvationRate']:.1f}%\n")
+                f.write(f"- Fairness Index: {pattern_row['FairnessIndex']:.3f}\n")
+                f.write(f"- RT Starvation: {pattern_row['RTStarvationRate']:.1f}%\n")
+                f.write(f"- Iso Starvation: {pattern_row['IsoStarvationRate']:.1f}%\n")
+                f.write(f"- BE Starvation: {pattern_row['BEStarvationRate']:.1f}%\n\n")
+            
+            # Policy-specific insights
+            f.write("#### 💡 Key Insights\n\n")
+            if policy == 'FixedPriority':
+                f.write(f"- ✅ **Excellent QoS compliance** ({avg_qos:.1f}%) - reliably meets latency constraints\n")
+                f.write(f"- ✅ **Low latency** for high-priority traffic\n")
+                if avg_starvation > 70:
+                    f.write(f"- ⚠️ **High starvation rate** ({avg_starvation:.1f}%) - low-priority traffic suffers\n")
+                f.write(f"- ⚠️ **Poor fairness** ({avg_fairness:.3f}) - heavily favors real-time traffic\n")
+                f.write(f"- 📌 **Best for:** Systems where QoS guarantees are critical\n\n")
+                
+            elif policy == 'WeightedRoundRobin':
+                f.write(f"- ✅ **Good fairness** ({avg_fairness:.3f}) - balanced service across traffic classes\n")
+                f.write(f"- ✅ **Moderate QoS compliance** ({avg_qos:.1f}%)\n")
+                if avg_latency > 10:
+                    f.write(f"- ⚠️ **Higher average latency** ({avg_latency:.1f} cycles) due to round-robin scheduling\n")
+                f.write(f"- 📌 **Best for:** Systems requiring fairness with some QoS awareness\n\n")
+                
+            elif policy == 'DynamicPriority':
+                f.write(f"- ✅ **Balanced approach** - {avg_qos:.1f}% QoS, {avg_fairness:.3f} fairness\n")
+                f.write(f"- ✅ **Adapts to traffic conditions** through priority aging\n")
+                if avg_violations < 30:
+                    f.write(f"- ✅ **Low QoS violations** ({avg_violations:.0f}) shows good priority management\n")
+                f.write(f"- 📌 **Best for:** General-purpose systems with mixed workloads\n\n")
+                
+            elif policy == 'Random':
+                f.write(f"- ✅ **Simple implementation** with no state tracking\n")
+                if avg_starvation > 75:
+                    f.write(f"- ⚠️ **High starvation** ({avg_starvation:.1f}%) - unpredictable service\n")
+                f.write(f"- ⚠️ **Poor fairness** ({avg_fairness:.3f}) - uneven service distribution\n")
+                f.write(f"- ⚠️ **No QoS awareness** - not suitable for real-time systems\n")
+                f.write(f"- 📌 **Best for:** Testing baseline, not recommended for production\n\n")
+        
+        f.write("---\n\n")
+        
+        # Comparative Analysis
+        f.write("## ⚖️ Comparative Analysis\n\n")
+        
+        # Best policy for each metric
+        best_qos_idx = df.groupby('Policy')['QoSRate'].mean().idxmax()
+        best_fairness_idx = df.groupby('Policy')['FairnessIndex'].mean().idxmax()
+        best_latency_idx = df.groupby('Policy')['AvgLatency'].mean().idxmin()
+        lowest_starvation_idx = df.groupby('Policy')['StarvationRate'].mean().idxmin()
+        
+        f.write("### 🏆 Best Performers by Metric\n\n")
+        f.write(f"- **Highest QoS Compliance:** {best_qos_idx} ({df.groupby('Policy')['QoSRate'].mean()[best_qos_idx]:.1f}%)\n")
+        f.write(f"- **Best Fairness:** {best_fairness_idx} ({df.groupby('Policy')['FairnessIndex'].mean()[best_fairness_idx]:.3f})\n")
+        f.write(f"- **Lowest Avg Latency:** {best_latency_idx} ({df.groupby('Policy')['AvgLatency'].mean()[best_latency_idx]:.1f} cycles)\n")
+        f.write(f"- **Lowest Starvation:** {lowest_starvation_idx} ({df.groupby('Policy')['StarvationRate'].mean()[lowest_starvation_idx]:.1f}%)\n\n")
+        
+        # Traffic pattern impact
+        f.write("### 📊 Traffic Pattern Impact Analysis\n\n")
+        for pattern in df['Pattern'].unique():
+            pattern_data = df[df['Pattern'] == pattern]
+            f.write(f"**{pattern.upper()}**\n\n")
+            f.write(f"- Average Requests Generated: {pattern_data['TotalRequests'].mean():.0f}\n")
+            f.write(f"- Average Service Rate: {pattern_data['ServiceRate'].mean():.1f}%\n")
+            f.write(f"- Average QoS Compliance: {pattern_data['QoSRate'].mean():.1f}%\n")
+            f.write(f"- Average Starvation: {pattern_data['StarvationRate'].mean():.1f}%\n")
+            
+            if pattern == 'heavy_contention':
+                f.write(f"- 💡 All policies struggle under heavy load - significant starvation expected\n\n")
+            elif pattern == 'priority_inversion':
+                f.write(f"- 💡 Tests priority enforcement when low-priority traffic dominates\n\n")
+            else:
+                f.write("\n")
+        
+        f.write("---\n\n")
+        
+        # Recommendations
+        f.write("## 📝 Recommendations\n\n")
+        
+        f.write("### 1️⃣ For Real-Time Critical Systems\n\n")
+        f.write("- **Recommended:** FixedPriority arbiter\n")
+        f.write("- **Rationale:** Accepts fairness trade-off for guaranteed QoS\n")
+        f.write("- **Caution:** Monitor best-effort starvation and adjust if needed\n\n")
+        
+        f.write("### 2️⃣ For Balanced QoS + Fairness\n\n")
+        f.write("- **Recommended:** DynamicPriority arbiter\n")
+        f.write("- **Rationale:** Good middle ground for mixed workloads\n")
+        f.write("- **Benefit:** Adapts to changing traffic conditions\n\n")
+        
+        f.write("### 3️⃣ For Fairness-Critical Systems\n\n")
+        f.write("- **Recommended:** WeightedRoundRobin arbiter\n")
+        f.write("- **Rationale:** Configure weights based on traffic class priorities\n")
+        f.write("- **Caution:** Accept slightly higher latency for better fairness\n\n")
+        
+        f.write("### 4️⃣ Avoid in Production\n\n")
+        f.write("- **Not Recommended:** Random arbiter\n")
+        f.write("- **Reason:** No QoS guarantees, poor fairness\n")
+        f.write("- **Use Case:** Only useful for testing or non-critical applications\n\n")
+        
+        f.write("---\n\n")
+        
+        # Starvation Analysis
+        f.write("## ⚠️ Starvation Analysis\n\n")
+        
+        avg_rt_starv = df['RTStarvationRate'].mean()
+        avg_iso_starv = df['IsoStarvationRate'].mean()
+        avg_be_starv = df['BEStarvationRate'].mean()
+        
+        f.write("### Starvation by Traffic Class (averaged across all tests)\n\n")
+        f.write(f"- **Real-Time:** {avg_rt_starv:.1f}% (target: near 0%)\n")
+        f.write(f"- **Isochronous:** {avg_iso_starv:.1f}%\n")
+        f.write(f"- **Best-Effort:** {avg_be_starv:.1f}%\n\n")
+        
+        if avg_rt_starv > 5:
+            f.write(f"⚠️ **WARNING:** Real-time starvation detected! Critical issue for QoS systems.\n\n")
+        if avg_be_starv > 90:
+            f.write(f"⚠️ **WARNING:** Excessive best-effort starvation. Consider load balancing.\n\n")
+        
+        f.write("---\n\n")
+        
+        # Summary Table
+        f.write("## 📊 Summary Comparison Table\n\n")
+        f.write("| Policy | QoS % | Fairness | Avg Latency | Starvation % | Best Use Case |\n")
+        f.write("|--------|-------|----------|-------------|--------------|---------------|\n")
+        for policy in df['Policy'].unique():
+            policy_data = df[df['Policy'] == policy]
+            avg_qos = policy_data['QoSRate'].mean()
+            avg_fairness = policy_data['FairnessIndex'].mean()
+            avg_latency = policy_data['AvgLatency'].mean()
+            avg_starvation = policy_data['StarvationRate'].mean()
+            
+            use_case = {
+                'FixedPriority': 'Real-time critical',
+                'WeightedRoundRobin': 'Fairness-critical',
+                'DynamicPriority': 'General purpose',
+                'Random': 'Testing only'
+            }.get(policy, 'Unknown')
+            
+            f.write(f"| {policy} | {avg_qos:.1f}% | {avg_fairness:.3f} | {avg_latency:.1f} | {avg_starvation:.1f}% | {use_case} |\n")
+        
+        f.write("\n---\n\n")
+        
+        # Footer
+        f.write("## 📁 Related Files\n\n")
+        f.write("- **Detailed CSV Results:** `arbiter_performance_report.csv`\n")
+        f.write("- **Visualizations:** `arbiter_performance_analysis.png`\n")
+        f.write("- **Source Code:** `test_arbiters.py`\n\n")
+        
+        f.write("---\n\n")
+        f.write("*Report generated by Arbiter Performance Testing Framework*\n")
+    
+    print(f"\n📄 Markdown report saved: {md_file}")
+    return md_file
+
+
 if __name__ == "__main__":
     # Run the streamlined simulation
     run_traffic_class_examples(req=16, cycles=2000)
@@ -943,4 +1170,9 @@ if __name__ == "__main__":
     print("GENERATING ANALYSIS REPORT")
     print("=" * 60)
     generate_analysis_report()
-    plot_performance_metrics()
+    
+    # Save analysis to markdown file
+    print("\n" + "=" * 60)
+    print("SAVING MARKDOWN REPORT")
+    print("=" * 60)
+    save_analysis_to_markdown()
