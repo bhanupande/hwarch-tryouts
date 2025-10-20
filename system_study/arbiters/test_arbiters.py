@@ -171,18 +171,48 @@ def measure_performance(arbiter: Arbiter, request_patterns: List[List[Request]])
         pending_requests.extend(new_requests)
         
         if pending_requests:
-            # Create request vector for arbiter from pending requests
+            # Create request vector for arbiter - assign requestors by traffic class
+            # Serve the HIGHEST PRIORITY request of each traffic class
+            # Requestor 0-3: Real-Time traffic (highest priority 10-15)
+            # Requestor 4-7: Isochronous traffic (medium priority 5-9)  
+            # Requestor 8-11: Best-Effort traffic (lowest priority 1-4)
+            
             request_vector = [None] * arbiter.num_requestors
             base_priority_vector = [0] * arbiter.num_requestors
             request_map = {}
             
-            # Map pending requests to requestor positions (first come first serve per requestor)
-            for req in pending_requests:
-                requestor_id = req.id % arbiter.num_requestors
-                if request_vector[requestor_id] is None:
-                    request_vector[requestor_id] = req
-                    base_priority_vector[requestor_id] = req.base_priority
-                    request_map[requestor_id] = req
+            # Group pending requests by traffic class
+            rt_requests = [req for req in pending_requests if req.traffic_class == TrafficClass.REAL_TIME]
+            iso_requests = [req for req in pending_requests if req.traffic_class == TrafficClass.ISOCHRONOUS]
+            be_requests = [req for req in pending_requests if req.traffic_class == TrafficClass.BEST_EFFORT]
+            
+            # Sort each group by priority (highest first) then by arrival time (earliest first)
+            rt_requests.sort(key=lambda x: (-x.base_priority, x.arrival_cycle))
+            iso_requests.sort(key=lambda x: (-x.base_priority, x.arrival_cycle))
+            be_requests.sort(key=lambda x: (-x.base_priority, x.arrival_cycle))
+            
+            # Assign Real-Time requests to requestors 0-3
+            for i, req in enumerate(rt_requests[:min(4, arbiter.num_requestors)]):
+                request_vector[i] = req
+                base_priority_vector[i] = req.base_priority
+                request_map[i] = req
+            
+            # Assign Isochronous requests to requestors 4-7 (or 1 if fewer requestors)
+            iso_start = 4 if arbiter.num_requestors > 4 else 1
+            iso_end = min(8, arbiter.num_requestors)
+            for i, req in enumerate(iso_requests[:iso_end - iso_start]):
+                slot = iso_start + i
+                request_vector[slot] = req
+                base_priority_vector[slot] = req.base_priority
+                request_map[slot] = req
+            
+            # Assign Best-Effort requests to requestors 8-11 (or 2-3 if fewer requestors)  
+            be_start = 8 if arbiter.num_requestors > 8 else 2
+            for i, req in enumerate(be_requests[:arbiter.num_requestors - be_start]):
+                slot = be_start + i
+                request_vector[slot] = req
+                base_priority_vector[slot] = req.base_priority
+                request_map[slot] = req
             
             # Convert request_vector to boolean vector for arbiter
             boolean_request_vector = [req is not None for req in request_vector]
