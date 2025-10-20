@@ -201,13 +201,59 @@ def measure_performance(arbiter: Arbiter, request_patterns: List[List[Request]])
     total_violations = 0
     latencies = []
     
+    # Starvation analysis: categorize requests by traffic class
+    starvation_by_class = {
+        TrafficClass.REAL_TIME: {'served': [], 'starved': []},
+        TrafficClass.ISOCHRONOUS: {'served': [], 'starved': []},
+        TrafficClass.BEST_EFFORT: {'served': [], 'starved': []}
+    }
+    
     for req in all_requests:
         if req.completion_cycle is not None:
             latency = req.completion_cycle - req.arrival_cycle
             latencies.append(latency)
+            starvation_by_class[req.traffic_class]['served'].append(latency)
             max_lat = TRAFFIC_CLASSES[req.traffic_class].max_acceptable_latency
             if max_lat and latency > max_lat:
                 total_violations += 1
+        else:
+            # Request was starved (never served)
+            starvation_by_class[req.traffic_class]['starved'].append(req)
+    
+    # Calculate starvation metrics
+    total_starved = sum(1 for req in all_requests if req.completion_cycle is None)
+    starvation_rate = (total_starved / len(all_requests) * 100) if all_requests else 0.0
+    
+    # Calculate fairness metrics - coefficient of variation of service by traffic class
+    service_by_class = []
+    for tc_info in starvation_by_class.values():
+        served_count = len(tc_info['served'])
+        service_by_class.append(served_count)
+    
+    # Fairness index (lower is more unfair, 1.0 is perfectly fair)
+    if len(service_by_class) > 1 and any(service_by_class):
+        mean_service = statistics.mean(service_by_class)
+        if mean_service > 0:
+            cv_service = statistics.stdev(service_by_class) / mean_service
+            fairness_index = 1.0 / (1.0 + cv_service)  # Normalized fairness (0-1)
+        else:
+            fairness_index = 0.0
+    else:
+        fairness_index = 1.0
+    
+    # Class-specific starvation rates
+    rt_starved = len(starvation_by_class[TrafficClass.REAL_TIME]['starved'])
+    iso_starved = len(starvation_by_class[TrafficClass.ISOCHRONOUS]['starved'])
+    be_starved = len(starvation_by_class[TrafficClass.BEST_EFFORT]['starved'])
+    
+    # Calculate total requests per traffic class for starvation rate calculation
+    rt_total = rt_starved + len(starvation_by_class[TrafficClass.REAL_TIME]['served'])
+    iso_total = iso_starved + len(starvation_by_class[TrafficClass.ISOCHRONOUS]['served'])
+    be_total = be_starved + len(starvation_by_class[TrafficClass.BEST_EFFORT]['served'])
+    
+    rt_starvation_rate = (rt_starved / rt_total * 100) if rt_total > 0 else 0.0
+    iso_starvation_rate = (iso_starved / iso_total * 100) if iso_total > 0 else 0.0
+    be_starvation_rate = (be_starved / be_total * 100) if be_total > 0 else 0.0
     
     # Corrected calculations
     # Throughput: requests served per cycle (max 1.0 since arbiter grants 1 per cycle)
@@ -235,7 +281,13 @@ def measure_performance(arbiter: Arbiter, request_patterns: List[List[Request]])
         'max_latency': max_latency,
         'service_rate': service_rate,
         'total_requests': len(all_requests),
-        'served_requests': total_served
+        'served_requests': total_served,
+        'starvation_rate': starvation_rate,
+        'fairness_index': fairness_index,
+        'rt_starvation_rate': rt_starvation_rate,
+        'iso_starvation_rate': iso_starvation_rate,
+        'be_starvation_rate': be_starvation_rate,
+        'total_starved': total_starved
     }
 
 
@@ -308,10 +360,11 @@ def run_traffic_class_examples(req=16, cycles=2000):
         traffic_patterns = generate_traffic(req, cycles, config['pattern_type'], config['traffic_mix'])
         perf = measure_performance(arbiter, traffic_patterns)
         
-        # Show progress with detailed debug info
+        # Show progress with detailed debug info including starvation
         print(f"  Total Reqs: {perf['total_requests']} | Served: {perf['served_requests']} ({perf['service_rate']:.1f}%) | "
               f"QoS Rate: {perf['qos_rate']:.1f}% | Violations: {perf['violations']} | "
-              f"Avg Lat: {perf['avg_latency']:.1f} | Max Lat: {perf['max_latency']:.0f}")
+              f"Avg Lat: {perf['avg_latency']:.1f} | Max Lat: {perf['max_latency']:.0f} | "
+              f"Starvation: {perf['starvation_rate']:.1f}% | Fairness: {perf['fairness_index']:.3f}")
         
         # Store result
         result = {
@@ -322,11 +375,11 @@ def run_traffic_class_examples(req=16, cycles=2000):
         results.append(result)
     
     # Generate detailed report
-    print("\n" + "=" * 80)
-    print("PERFORMANCE SUMMARY")
-    print("=" * 80)
-    print(f"{'Test':<4} {'Policy (Mode)':<20} {'Mix':<12} {'Reqs':<6} {'Served':<6} {'Tput':<8} {'QoS%':<8} {'Viol':<6} {'AvgLat':<7}")
-    print("-" * 80)
+    print("\n" + "=" * 120)
+    print("PERFORMANCE SUMMARY (with Starvation Analysis)")
+    print("=" * 120)
+    print(f"{'Test':<4} {'Policy (Mode)':<20} {'Mix':<12} {'Reqs':<6} {'Served':<6} {'Tput':<8} {'QoS%':<8} {'Viol':<6} {'AvgLat':<7} {'Starv%':<7} {'Fair':<6}")
+    print("-" * 120)
     
     for i, result in enumerate(results, 1):
         config = result['config']
@@ -336,7 +389,16 @@ def run_traffic_class_examples(req=16, cycles=2000):
         print(f"{i:<4} {policy_mode:<20} {config['traffic_mix']:<12} "
               f"{perf['total_requests']:<6} {perf['served_requests']:<6} "
               f"{perf['throughput']:<8.3f} {perf['qos_rate']:<8.1f} "
-              f"{perf['violations']:<6} {perf['avg_latency']:<7.1f}")
+              f"{perf['violations']:<6} {perf['avg_latency']:<7.1f} "
+              f"{perf['starvation_rate']:<7.1f} {perf['fairness_index']:<6.3f}")
+    
+    # Add starvation analysis summary
+    print("\n" + "=" * 120)
+    print("STARVATION ANALYSIS BY TRAFFIC CLASS")
+    print("=" * 120)
+    print("Legend: Starv% = Overall Starvation Rate, Fair = Fairness Index (1.0=perfect, 0.0=unfair)")
+    print("RT=RealTime, Iso=Isochronous, BE=BestEffort starvation rates")
+    print("-" * 120)
     
     # Save separate CSV reports by traffic mix
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -358,7 +420,7 @@ def run_traffic_class_examples(req=16, cycles=2000):
         
         with open(full_path, 'w') as f:
             # CSV header with combined Policy-Pattern column
-            f.write("Test,PolicyPattern,TotalRequests,ServedRequests,ServiceRate,Throughput,QoSRate,Violations,AvgLatency,MaxLatency\n")
+            f.write("Test,PolicyPattern,TotalRequests,ServedRequests,ServiceRate,Throughput,QoSRate,Violations,AvgLatency,MaxLatency,StarvationRate,FairnessIndex,RTStarvationRate,IsoStarvationRate,BEStarvationRate\n")
             
             # CSV data for this traffic mix
             for i, result in enumerate(group_results, 1):
@@ -374,7 +436,9 @@ def run_traffic_class_examples(req=16, cycles=2000):
                 f.write(f"{i},{policy_pattern},"
                        f"{perf['total_requests']},{perf['served_requests']},{perf['service_rate']:.1f},"
                        f"{perf['throughput']:.3f},{perf['qos_rate']:.1f},"
-                       f"{perf['violations']},{perf['avg_latency']:.1f},{perf['max_latency']:.0f}\n")
+                       f"{perf['violations']},{perf['avg_latency']:.1f},{perf['max_latency']:.0f},"
+                       f"{perf['starvation_rate']:.1f},{perf['fairness_index']:.3f},"
+                       f"{perf['rt_starvation_rate']:.1f},{perf['iso_starvation_rate']:.1f},{perf['be_starvation_rate']:.1f}\n")
         
         saved_files.append(full_path)
     
@@ -410,13 +474,13 @@ def plot_performance_metrics():
         # Read data
         df = pd.read_csv(os.path.join(script_dir, csv_file))
         
-        # Create figure with 2x2 subplots
-        fig, axes = plt.subplots(2, 2, figsize=(20, 16))
-        fig.suptitle(f'Arbiter Performance Analysis - {traffic_mix.replace("_", " ").title()} Traffic', 
+        # Create figure with 2x3 subplots to include starvation metrics
+        fig, axes = plt.subplots(2, 3, figsize=(24, 16))
+        fig.suptitle(f'Arbiter Performance Analysis with Starvation Metrics - {traffic_mix.replace("_", " ").title()} Traffic', 
                      fontsize=18, fontweight='bold', y=0.98)
         
         # Adjust spacing between subplots
-        plt.subplots_adjust(hspace=0.35, wspace=0.25, top=0.92, bottom=0.12, left=0.08, right=0.95)
+        plt.subplots_adjust(hspace=0.35, wspace=0.25, top=0.92, bottom=0.12, left=0.06, right=0.97)
         
         # 1. Average Latency Comparison (Top Left)
         ax1 = axes[0, 0]
@@ -442,36 +506,36 @@ def plot_performance_metrics():
                         f'{height:.1f}', ha='center', va='bottom', fontsize=10, fontweight='bold',
                         bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8, edgecolor='none'))
         
-        # 2. Peak Latency Comparison (Top Right)
+        # 2. Starvation Rate Comparison (Top Middle) - NEW!
         ax2 = axes[0, 1]
-        bars2 = ax2.bar(range(len(df)), df['MaxLatency'], color=sns.color_palette("plasma", len(df)))
-        ax2.set_title('Peak Latency by Policy', fontweight='bold', fontsize=14, pad=15)
+        bars2 = ax2.bar(range(len(df)), df['StarvationRate'], color=sns.color_palette("Reds_r", len(df)))
+        ax2.set_title('Starvation Rate by Policy', fontweight='bold', fontsize=14, pad=15)
         ax2.set_xlabel('Policy-Pattern', fontsize=12, labelpad=10)
-        ax2.set_ylabel('Peak Latency (cycles)', fontsize=12, labelpad=10)
+        ax2.set_ylabel('Starvation Rate (%)', fontsize=12, labelpad=10)
         ax2.set_xticks(range(len(df)))
         ax2.set_xticklabels(df['PolicyPattern'], rotation=45, ha='right', fontsize=10)
         ax2.tick_params(axis='y', labelsize=10)
         ax2.grid(True, alpha=0.3)
         
-        # Adjust Y-axis and add value labels
+        # Adjust Y-axis and add value labels for starvation
         if len(df) > 0:
-            max_val = df['MaxLatency'].max()
-            ax2.set_ylim(0, max_val * 1.12)
+            max_starv = df['StarvationRate'].max()
+            ax2.set_ylim(0, max(max_starv * 1.15, 5))  # Ensure minimum scale
         
         for i, bar in enumerate(bars2):
             height = bar.get_height()
-            if height > 10:
-                y_offset = height + max(height * 0.02, 20)
+            if height > 0.1:
+                y_offset = height + max(height * 0.05, 0.2)
                 ax2.text(bar.get_x() + bar.get_width()/2., y_offset,
-                        f'{height:.0f}', ha='center', va='bottom', fontsize=10, fontweight='bold',
-                        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8, edgecolor='none'))
+                        f'{height:.1f}%', ha='center', va='bottom', fontsize=10, fontweight='bold',
+                        bbox=dict(boxstyle='round,pad=0.2', facecolor='red', alpha=0.7, edgecolor='darkred'))
         
-        # 3. QoS Compliance Rate (Bottom Left)
-        ax3 = axes[1, 0]
-        bars3 = ax3.bar(range(len(df)), df['QoSRate'], color=sns.color_palette("coolwarm", len(df)))
-        ax3.set_title('QoS Compliance Rate by Policy', fontweight='bold', fontsize=14, pad=15)
+        # 3. Peak Latency Comparison (Top Right)
+        ax3 = axes[0, 2]
+        bars3 = ax3.bar(range(len(df)), df['MaxLatency'], color=sns.color_palette("plasma", len(df)))
+        ax3.set_title('Peak Latency by Policy', fontweight='bold', fontsize=14, pad=15)
         ax3.set_xlabel('Policy-Pattern', fontsize=12, labelpad=10)
-        ax3.set_ylabel('QoS Rate (%)', fontsize=12, labelpad=10)
+        ax3.set_ylabel('Peak Latency (cycles)', fontsize=12, labelpad=10)
         ax3.set_xticks(range(len(df)))
         ax3.set_xticklabels(df['PolicyPattern'], rotation=45, ha='right', fontsize=10)
         ax3.tick_params(axis='y', labelsize=10)
@@ -479,185 +543,108 @@ def plot_performance_metrics():
         
         # Adjust Y-axis and add value labels
         if len(df) > 0:
-            max_qos = df['QoSRate'].max()
-            ax3.set_ylim(0, min(110, max_qos + 15))
+            max_val = df['MaxLatency'].max()
+            ax3.set_ylim(0, max_val * 1.12)
         
         for i, bar in enumerate(bars3):
             height = bar.get_height()
+            if height > 10:
+                y_offset = height + max(height * 0.02, 20)
+                ax3.text(bar.get_x() + bar.get_width()/2., y_offset,
+                        f'{height:.0f}', ha='center', va='bottom', fontsize=10, fontweight='bold',
+                        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8, edgecolor='none'))
+        
+        # 4. QoS Compliance Rate (Bottom Left)
+        ax4 = axes[1, 0]
+        bars4 = ax4.bar(range(len(df)), df['QoSRate'], color=sns.color_palette("coolwarm", len(df)))
+        ax4.set_title('QoS Compliance Rate by Policy', fontweight='bold', fontsize=14, pad=15)
+        ax4.set_xlabel('Policy-Pattern', fontsize=12, labelpad=10)
+        ax4.set_ylabel('QoS Rate (%)', fontsize=12, labelpad=10)
+        ax4.set_xticks(range(len(df)))
+        ax4.set_xticklabels(df['PolicyPattern'], rotation=45, ha='right', fontsize=10)
+        ax4.tick_params(axis='y', labelsize=10)
+        ax4.grid(True, alpha=0.3)
+        
+        # Adjust Y-axis and add value labels
+        if len(df) > 0:
+            max_qos = df['QoSRate'].max()
+            ax4.set_ylim(0, min(110, max_qos + 15))
+        
+        for i, bar in enumerate(bars4):
+            height = bar.get_height()
             if height > 2:
-                ax3.text(bar.get_x() + bar.get_width()/2., height + 2.5,
+                ax4.text(bar.get_x() + bar.get_width()/2., height + 2.5,
                         f'{height:.1f}%', ha='center', va='bottom', fontsize=10, fontweight='bold',
                         bbox=dict(boxstyle='round,pad=0.2', facecolor='yellow', alpha=0.7, edgecolor='orange'))
         
-        # 4. Service Rate vs QoS Rate Scatter Plot (Bottom Right)
-        ax4 = axes[1, 1]
+        # 5. Fairness Index (Bottom Middle) - NEW!
+        ax5 = axes[1, 1]
+        bars5 = ax5.bar(range(len(df)), df['FairnessIndex'], color=sns.color_palette("viridis_r", len(df)))
+        ax5.set_title('Fairness Index by Policy', fontweight='bold', fontsize=14, pad=15)
+        ax5.set_xlabel('Policy-Pattern', fontsize=12, labelpad=10)
+        ax5.set_ylabel('Fairness Index (1.0=Fair)', fontsize=12, labelpad=10)
+        ax5.set_xticks(range(len(df)))
+        ax5.set_xticklabels(df['PolicyPattern'], rotation=45, ha='right', fontsize=10)
+        ax5.tick_params(axis='y', labelsize=10)
+        ax5.grid(True, alpha=0.3)
+        ax5.set_ylim(0, 1.1)
+        
+        for i, bar in enumerate(bars5):
+            height = bar.get_height()
+            if height > 0.05:
+                ax5.text(bar.get_x() + bar.get_width()/2., height + 0.03,
+                        f'{height:.3f}', ha='center', va='bottom', fontsize=10, fontweight='bold',
+                        bbox=dict(boxstyle='round,pad=0.2', facecolor='lightgreen', alpha=0.7, edgecolor='green'))
+        
+        # 6. Starvation vs Fairness Scatter Plot (Bottom Right) - NEW!
+        ax6 = axes[1, 2]
         
         # Policy colors for consistency
         policy_colors = {
             'FixedPriority': '#FF6B6B',
             'RoundRobin': '#4ECDC4',  
             'Random': '#45B7D1',
-            'WeightedRoundRobin': '#96CEB4'
+            'WeightedRoundRobin': '#96CEB4',
+            'DynamicPriority': '#FFA500'
         }
         
-        # Plot points by policy
+        # Plot points by policy for starvation vs fairness
         for policy_name, color in policy_colors.items():
             policy_data = df[df['PolicyPattern'].str.startswith(policy_name)]
             if not policy_data.empty:
-                ax4.scatter(policy_data['ServiceRate'], policy_data['QoSRate'], 
+                ax6.scatter(policy_data['StarvationRate'], policy_data['FairnessIndex'], 
                            c=color, s=120, alpha=0.8, 
                            edgecolors='black', linewidth=1.0, label=policy_name)
         
-        ax4.set_title('Service Rate vs QoS Rate by Policy', fontweight='bold', fontsize=14, pad=15)
-        ax4.set_xlabel('Service Rate (%)', fontsize=12, labelpad=10)
-        ax4.set_ylabel('QoS Rate (%)', fontsize=12, labelpad=10)
-        ax4.tick_params(axis='both', labelsize=10)
-        ax4.grid(True, alpha=0.3)
+        ax6.set_title('Starvation vs Fairness Trade-off', fontweight='bold', fontsize=14, pad=15)
+        ax6.set_xlabel('Starvation Rate (%)', fontsize=12, labelpad=10)
+        ax6.set_ylabel('Fairness Index (1.0=Fair)', fontsize=12, labelpad=10)
+        ax6.tick_params(axis='both', labelsize=10)
+        ax6.grid(True, alpha=0.3)
+        ax6.set_ylim(0, 1.1)
         
-        # Position legend to avoid overlap with data points
-        ax4.legend(loc='lower right', fontsize=10, framealpha=0.95, 
-                  bbox_to_anchor=(0.98, 0.02), borderaxespad=0)
+        # Position legend
+        ax6.legend(loc='upper right', fontsize=9, framealpha=0.95, 
+                  bbox_to_anchor=(0.98, 0.98), borderaxespad=0)
         
-        # Add full policy names with patterns using advanced non-overlapping positioning
-        import numpy as np
-        from matplotlib.patches import Rectangle
+        # Add quadrant labels to help interpret the scatter plot
+        ax6.text(0.02, 0.98, 'IDEAL\n(Low Starvation\nHigh Fairness)', 
+                transform=ax6.transAxes, fontsize=10, fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='lightgreen', alpha=0.7),
+                verticalalignment='top')
+        ax6.text(0.02, 0.02, 'POOR\n(Low Starvation\nLow Fairness)', 
+                transform=ax6.transAxes, fontsize=10, fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7),
+                verticalalignment='bottom')
+        ax6.text(0.98, 0.98, 'ACCEPTABLE\n(High Starvation\nHigh Fairness)', 
+                transform=ax6.transAxes, fontsize=10, fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='orange', alpha=0.7),
+                verticalalignment='top', horizontalalignment='right')
+        ax6.text(0.98, 0.02, 'WORST\n(High Starvation\nLow Fairness)', 
+                transform=ax6.transAxes, fontsize=10, fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='red', alpha=0.7),
+                verticalalignment='bottom', horizontalalignment='right')
         
-        # Collect all annotations info first
-        annotations_data = []
-        for i, row in df.iterrows():
-            policy_pattern = row['PolicyPattern']
-            
-            # Use full policy names with patterns
-            if policy_pattern.startswith('FixedPriority'):
-                parts = policy_pattern.split('_')
-                if len(parts) > 1:
-                    mode = parts[1]
-                    display_name = f'FixedPriority\n({mode})'
-                else:
-                    display_name = 'FixedPriority'
-            elif policy_pattern.startswith('RoundRobin'):
-                parts = policy_pattern.split('_')
-                if len(parts) > 1:
-                    mode = parts[1]
-                    display_name = f'RoundRobin\n({mode})'
-                else:
-                    display_name = 'RoundRobin'
-            elif policy_pattern.startswith('WeightedRoundRobin'):
-                # Extract the mode (e.g., "quantum", "priority", "burst")
-                parts = policy_pattern.split('_')
-                if len(parts) > 2:
-                    mode = parts[2]
-                    display_name = f'WeightedRoundRobin\n({mode})'
-                else:
-                    display_name = 'WeightedRoundRobin'
-            else:
-                display_name = policy_pattern
-            
-            annotations_data.append({
-                'x': row['ServiceRate'],
-                'y': row['QoSRate'],
-                'name': display_name,
-                'index': i
-            })
-        
-        # Advanced positioning algorithm to prevent overlaps
-        def calculate_optimal_positions(annotations_data, ax):
-            positions = []
-            
-            # Convert axis limits to work in display coordinates
-            xlim = ax.get_xlim()
-            ylim = ax.get_ylim()
-            
-            for i, data in enumerate(annotations_data):
-                x_data, y_data = data['x'], data['y']
-                best_pos = None
-                best_distance = 0
-                
-                # Extended radius search for better spacing
-                radius_steps = [25, 35, 45, 55, 70]  # Increasing radii
-                angle_steps = 12  # Number of angles to try
-                
-                for radius in radius_steps:
-                    found_good_position = False
-                    
-                    for angle_i in range(angle_steps):
-                        angle = (2 * np.pi * angle_i) / angle_steps
-                        
-                        # Calculate offset in points
-                        offset_x = radius * np.cos(angle)
-                        offset_y = radius * np.sin(angle)
-                        
-                        # Check if this position conflicts with previous annotations
-                        conflict = False
-                        min_dist = float('inf')
-                        
-                        for prev_pos in positions:
-                            # Distance between annotation positions (in points)
-                            dist = np.sqrt((offset_x - prev_pos['offset_x'])**2 + 
-                                         (offset_y - prev_pos['offset_y'])**2)
-                            min_dist = min(min_dist, dist)
-                            
-                            # Also check distance between data points
-                            data_dist = np.sqrt((x_data - prev_pos['x_data'])**2 + 
-                                              (y_data - prev_pos['y_data'])**2)
-                            
-                            # If data points are close, annotations need more separation
-                            required_separation = 40 if data_dist < 10 else 30
-                            
-                            if dist < required_separation:
-                                conflict = True
-                                break
-                        
-                        if not conflict and min_dist > best_distance:
-                            best_distance = min_dist
-                            best_pos = {
-                                'offset_x': offset_x,
-                                'offset_y': offset_y,
-                                'x_data': x_data,
-                                'y_data': y_data,
-                                'name': data['name']
-                            }
-                            
-                            # If we found a good separation, use it
-                            if min_dist > 35:
-                                found_good_position = True
-                                break
-                    
-                    if found_good_position:
-                        break
-                
-                # Fallback if no good position found
-                if best_pos is None:
-                    # Use a spiral pattern for fallback
-                    spiral_angle = i * 0.8  # Spiral increment
-                    spiral_radius = 30 + (i * 8)  # Increasing radius
-                    best_pos = {
-                        'offset_x': spiral_radius * np.cos(spiral_angle),
-                        'offset_y': spiral_radius * np.sin(spiral_angle),
-                        'x_data': x_data,
-                        'y_data': y_data,
-                        'name': data['name']
-                    }
-                
-                positions.append(best_pos)
-            
-            return positions
-        
-        # Calculate optimal positions
-        optimal_positions = calculate_optimal_positions(annotations_data, ax4)
-        
-        # Apply annotations with calculated positions
-        for pos in optimal_positions:
-            ax4.annotate(pos['name'], 
-                        (pos['x_data'], pos['y_data']),
-                        xytext=(pos['offset_x'], pos['offset_y']), 
-                        textcoords='offset points',
-                        fontsize=7, fontweight='bold', alpha=0.95,
-                        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.98, 
-                                 edgecolor='gray', linewidth=0.6),
-                        arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.15', 
-                                       color='gray', alpha=0.9, linewidth=0.8),
-                        ha='center', va='center')
         
         # Save combined plot
         plot_filename = f"performance_analysis_{traffic_mix}.png"
